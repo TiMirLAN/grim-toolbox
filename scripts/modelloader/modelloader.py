@@ -2,6 +2,7 @@
 # requires-python = ">=3.14"
 # dependencies = [
 #     "requests",
+#     "click",
 # ]
 # ///
 
@@ -9,7 +10,8 @@ import json
 import os
 import pprint
 import requests  # pyright: ignore[reportMissingModuleSource]
-from typing import Dict, List, Optional, Any
+import click  # pyright: ignore[reportMissingImports, reportMissingModuleSource]
+from typing import Dict, List, Optional
 
 
 class BaseProvider:
@@ -113,8 +115,19 @@ class AgentPlatformProvider(BaseProvider):
     BASE_URL = "https://litellm.tokengate.ru/v1"
 
 
-def main():
-    """Основная функция — запускает запросы ко всем провайдерам."""
+@click.group()
+def cli():
+    """CLI для управления моделями и провайдерами LLM."""
+    pass
+
+
+@cli.command()  # pyright: ignore[reportFunctionMemberAccess]
+@click.option(
+    "--provider",
+    help="Фильтрация моделей по провайдеру (RouterAI, NeuroAPI, Caila.io, AgentPlatform)",
+)
+def models(provider: Optional[str]):
+    """Отображает список моделей от всех провайдеров или от указанного провайдера."""
     providers = [
         RouterAIProvider(),
         NeuroAPIProvider(),
@@ -122,34 +135,82 @@ def main():
         AgentPlatformProvider(),
     ]
 
+    if provider:
+        # Фильтрация по провайдеру
+        providers = [p for p in providers if p.name == provider]
+        if not providers:
+            click.echo(
+                f"Провайдер '{provider}' не найден. Доступные провайдеры: RouterAI, NeuroAPI, Caila.io, AgentPlatform",
+                err=True,
+            )
+            return
+
     results = {}
 
-    for provider in providers:
-        print(f"\n--- Получаем модели от {provider.name} ---")
-        models = provider.fetch_models()
+    for provider_obj in providers:
+        click.echo(f"\n--- Получаем модели от {provider_obj.name} ---")
+        models = provider_obj.fetch_models()
 
         if models is None:
-            results[provider.name] = "Ошибка/Нет данных"
+            results[provider_obj.name] = "Ошибка/Нет данных"
+            click.echo(f"❌ Ошибка при получении моделей от {provider_obj.name}")
         elif len(models) == 0:
-            results[provider.name] = "Список пуст"
+            results[provider_obj.name] = "Список пуст"
+            click.echo(f"⚠️ Список моделей пуст для {provider_obj.name}")
         else:
-            results[provider.name] = f"Найдено моделей: {len(models)}"
+            results[provider_obj.name] = f"Найдено моделей: {len(models)}"
             # Сохраняем модели в файл
-            filename = f"{provider.name.replace('.', '')}.models.json"
+            filename = f"{provider_obj.name.replace('.', '')}.models.json"
             with open(filename, "w", encoding="utf-8") as f:
                 json.dump(models, f, ensure_ascii=False, indent=2)
-            print(f"Модели сохранены в {filename}")
+            click.echo(f"✓ Модели сохранены в {filename}")
             # Выводим первые 3 модели для примера
-            print(f"Первые 3 модели ({provider.name}):")
+            click.echo(f"Первые 3 модели ({provider_obj.name}):")
             pprint.pprint(models[:3])
 
     # Финальный отчёт
-    print("\n" + "=" * 50)
-    print("ФИНАЛЬНЫЙ ОТЧЁТ")
-    print("=" * 50)
-    for provider, status in results.items():
-        print(f"{provider}: {status}")
+    click.echo("\n" + "=" * 50)
+    click.echo("ФИНАЛЬНЫЙ ОТЧЁТ")
+    click.echo("=" * 50)
+    for provider_name, status in results.items():
+        click.echo(f"{provider_name}: {status}")
+
+
+@cli.command()  # pyright: ignore[reportFunctionMemberAccess]
+@click.option(
+    "--provider",
+    help="Информация о конкретном провайдере (RouterAI, NeuroAPI, Caila.io, AgentPlatform)",
+)
+def providers(provider: Optional[str]):
+    """Отображает информацию о всех провайдерах или о конкретном провайдере."""
+    providers_list = [
+        RouterAIProvider(),
+        NeuroAPIProvider(),
+        CailaProvider(),
+        AgentPlatformProvider(),
+    ]
+
+    if provider:
+        # Фильтрация по провайдеру
+        providers_list = [p for p in providers_list if p.name == provider]
+        if not providers_list:
+            click.echo(
+                f"Провайдер '{provider}' не найден. Доступные провайдеры: RouterAI, NeuroAPI, Caila.io, AgentPlatform",
+                err=True,
+            )
+            return
+
+    for prov in providers_list:
+        click.echo(f"\n--- Информация о провайдере: {prov.name} ---")
+        click.echo(f"Название: {prov.name}")
+        click.echo(f"Базовый URL: {prov.base_url}")
+
+        api_key = prov.get_api_key()
+        if api_key:
+            click.echo(f"API ключ: {'Доступен' if api_key else 'Не найден'}")
+        else:
+            click.echo("API ключ: Не найден")
 
 
 if __name__ == "__main__":
-    main()
+    cli()
