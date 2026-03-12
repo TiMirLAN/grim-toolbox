@@ -13,6 +13,31 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from modelloader import cli
 
 
+@pytest.fixture(autouse=True)
+def cleanup_json_files():
+    """Cleanup JSON files created during tests."""
+    test_files = [
+        "RouterAI.models.json",
+        "NeuroAPI.models.json",
+        "Cailaio.models.json",
+        "AgentPlatform.models.json",
+    ]
+    yield
+    for filename in test_files:
+        path = Path(filename)
+        if path.exists():
+            path.unlink()
+        data_dir = Path("data")
+        if data_dir.exists():
+            data_file = data_dir / filename
+            if data_file.exists():
+                data_file.unlink()
+                try:
+                    data_dir.rmdir()
+                except OSError:
+                    pass
+
+
 @pytest.fixture
 def runner():
     """Fixture providing a Click CLI runner."""
