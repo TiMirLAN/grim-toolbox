@@ -6,12 +6,15 @@
 # ]
 # ///
 
+import csv as CSV
 import json
 import os
 import pprint
-import requests  # pyright: ignore[reportMissingModuleSource]
-import click  # pyright: ignore[reportMissingImports, reportMissingModuleSource]
+from datetime import datetime
 from typing import Dict, List, Optional
+
+import click  # pyright: ignore[reportMissingImports, reportMissingModuleSource]
+import requests  # pyright: ignore[reportMissingModuleSource]
 
 
 class BaseProvider:
@@ -193,6 +196,17 @@ class CailaProvider(BaseProvider):
     NAME = "Caila.io"
     BASE_URL = "https://caila.io/api/adapters/openai-direct"
     AUTH_OPENJSON_ID = "caila-oai"
+
+    def fetch_prices(self) -> Optional[Dict]:
+        """
+        Получает цены моделей от Caila.io.
+
+        Returns:
+            Словарь с ценами или None в случае ошибки
+        """
+        # Caila.io не предоставляет информацию о ценах через API
+        # Возвращаем None, так как цены недоступны
+        return None
 
 
 class AgentPlatformProvider(BaseProvider):
@@ -409,6 +423,140 @@ def prices():
                 click.echo(f"Не удалось получить цены для {provider.name}")
         except NotImplementedError:
             click.echo(f"Метод fetch_prices не реализован для {provider.name}")
+
+
+@cli.command()  # pyright: ignore[reportFunctionMemberAccess]
+@click.option(
+    "--field",
+    "-f",
+    multiple=True,
+    help="Поля для включения в CSV (можно указать несколько раз). По умолчанию: provider, model_id, prompt_price, completion_price",
+)
+def csv(field):
+    """
+    Экспортирует данные о моделях и ценах в CSV файл.
+    Принимает на вход множество опций --field/-f для указания полей, которые нужно включить в CSV.
+    По умолчанию "provider name", "model id", "prompt (input) price" и "completion (output) price".
+    Может включать все поля из JSON ответа каждого провайдера. Если поле отсутствует для модели, оставляет его пустым в CSV.
+    CSV файл сохраняется в директории data с именем, включающим дату и время создания, например: llm_prices_2024-06-01_12-00-00.csv.
+    """
+
+    # Определяем поля по умолчанию
+    default_fields = [
+        "provider",
+        "model_id",
+        "prompt_price",
+        "completion_price",
+    ]
+
+    # Используем указанные поля или поля по умолчанию
+    fields_to_include = list(field) if field else default_fields
+
+    # Инициализация провайдеров
+    providers = [
+        RouterAIProvider(),
+        NeuroAPIProvider(),
+        CailaProvider(),
+        AgentPlatformProvider(),
+    ]
+
+    # Собираем данные о моделях и ценах
+    all_data = []
+
+    for provider in providers:
+        click.echo(f"Получаем данные от {provider.name}...")
+
+        # Получаем модели
+        models = provider.fetch_models()
+        if not models:
+            click.echo(f"  ❌ Не удалось получить модели от {provider.name}")
+            continue
+
+        # Получаем цены
+        prices = provider.fetch_prices()
+
+        # Обрабатываем каждую модель
+        for model in models:
+            model_data = {"provider": provider.name}
+
+            # Добавляем базовые поля
+            model_id = model.get("id", "")
+            model_data["model_id"] = model_id
+
+            # Добавляем цены в зависимости от провайдера
+            if prices and model_id in prices:
+                price_info = prices[model_id]
+
+                # RouterAI использует prompt/completion
+                if "prompt" in price_info:
+                    model_data["prompt_price"] = price_info["prompt"]
+                    model_data["completion_price"] = price_info["completion"]
+                # AgentPlatform использует input/output
+                elif "input" in price_info:
+                    model_data["prompt_price"] = price_info["input"]
+                    model_data["completion_price"] = price_info["output"]
+                # NeuroAPI и Caila не предоставляют цены через API
+                else:
+                    model_data["prompt_price"] = ""
+                    model_data["completion_price"] = ""
+            else:
+                model_data["prompt_price"] = ""
+                model_data["completion_price"] = ""
+
+            # Добавляем все поля из JSON ответа провайдера
+            for key, value in model.items():
+                # Преобразуем вложенные объекты в строки для CSV
+                if isinstance(value, dict):
+                    model_data[key] = json.dumps(value, ensure_ascii=False)
+                elif isinstance(value, list):
+                    model_data[key] = json.dumps(value, ensure_ascii=False)
+                else:
+                    model_data[key] = str(value) if value is not None else ""
+
+            all_data.append(model_data)
+
+    if not all_data:
+        click.echo("❌ Не удалось получить данные ни от одного провайдера")
+        return
+
+    # Создаем директорию data, если её нет
+    data_dir = os.path.join(os.path.dirname(__file__), "data")
+    os.makedirs(data_dir, exist_ok=True)
+
+    # Генерируем имя файла с датой и временем
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    filename = f"llm_prices_{timestamp}.csv"
+    filepath = os.path.join(data_dir, filename)
+
+    # Определяем заголовки CSV
+    # Используем только указанные поля, но добавляем все доступные поля из данных
+    available_fields = set()
+    for row in all_data:
+        available_fields.update(row.keys())
+
+    # Фильтруем поля, оставляя только те, что указаны в --field или доступны в данных
+    final_fields = []
+    for f in fields_to_include:
+        if f in available_fields:
+            final_fields.append(f)
+        else:
+            click.echo(f"⚠️  Поле '{f}' не найдено в данных, пропускаем")
+
+    # Filter all_data to include only final_fields
+    filtered_data = []
+    for row in all_data:
+        filtered_row = {field: row.get(field, "") for field in final_fields}
+        filtered_data.append(filtered_row)
+
+    # Записываем CSV файл
+    with open(filepath, "w", newline="", encoding="utf-8") as csvfile:
+        writer = CSV.DictWriter(csvfile, fieldnames=final_fields)
+        writer.writeheader()
+        writer.writerows(filtered_data)
+
+    click.echo(f"✓ Данные экспортированы в {filepath}")
+    click.echo(f"  Всего моделей: {len(filtered_data)}")
+    click.echo(f"  Поля: {', '.join(final_fields)}")
 
 
 if __name__ == "__main__":

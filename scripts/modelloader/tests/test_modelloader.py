@@ -431,3 +431,148 @@ class TestCLIErrorHandling:
             result = runner.invoke(cli, ["models"])
 
             assert result.exit_code == 0
+
+
+class TestCSVCommand:
+    """Tests for the csv CLI command."""
+
+    def test_csv_command_help(self, runner):
+        """Test that csv command help works."""
+        result = runner.invoke(cli, ["csv", "--help"])
+
+        assert result.exit_code == 0
+        assert "Экспортирует данные о моделях" in result.output
+        assert "--field" in result.output
+        assert "-f" in result.output
+
+    def test_csv_command_basic(self, runner, mock_auth_path, tmp_path):
+        """Test basic csv command execution."""
+        with patch("modelloader.os.path.dirname") as mock_dirname:
+            mock_dirname.return_value = str(tmp_path)
+
+            with patch("modelloader.requests.Session") as mock_session_class:
+                mock_session = MagicMock()
+                mock_session_class.return_value = mock_session
+
+                mock_response = MagicMock()
+                mock_response.status_code = 200
+                mock_response.json.return_value = {
+                    "data": [
+                        {
+                            "id": "gpt-4",
+                            "object": "model",
+                            "created": 1234567890,
+                        }
+                    ]
+                }
+                mock_session.get.return_value = mock_response
+
+                # Mock fetch_prices to return test data
+                with (
+                    patch(
+                        "modelloader.RouterAIProvider.fetch_prices"
+                    ) as mock_router_prices,
+                    patch(
+                        "modelloader.NeuroAPIProvider.fetch_prices"
+                    ) as mock_neuro_prices,
+                    patch(
+                        "modelloader.CailaProvider.fetch_prices"
+                    ) as mock_caila_prices,
+                    patch(
+                        "modelloader.AgentPlatformProvider.fetch_prices"
+                    ) as mock_agent_prices,
+                ):
+                    mock_router_prices.return_value = {
+                        "gpt-4": {"prompt": 0.01, "completion": 0.02}
+                    }
+                    mock_neuro_prices.return_value = None
+                    mock_caila_prices.return_value = None
+                    mock_agent_prices.return_value = None
+
+                    result = runner.invoke(cli, ["csv"])
+
+                    assert result.exit_code == 0
+                    assert "Данные экспортированы в" in result.output
+                    assert "llm_prices_" in result.output
+
+    def test_csv_command_with_custom_fields(self, runner, mock_auth_path, tmp_path):
+        """Test csv command with custom fields."""
+        with patch("modelloader.os.path.dirname") as mock_dirname:
+            mock_dirname.return_value = str(tmp_path)
+
+            with patch("modelloader.requests.Session") as mock_session_class:
+                mock_session = MagicMock()
+                mock_session_class.return_value = mock_session
+
+                mock_response = MagicMock()
+                mock_response.status_code = 200
+                mock_response.json.return_value = {
+                    "data": [
+                        {
+                            "id": "gpt-4",
+                            "object": "model",
+                            "created": 1234567890,
+                        }
+                    ]
+                }
+                mock_session.get.return_value = mock_response
+
+                # Mock fetch_prices to return test data
+                with (
+                    patch(
+                        "modelloader.RouterAIProvider.fetch_prices"
+                    ) as mock_router_prices,
+                    patch(
+                        "modelloader.NeuroAPIProvider.fetch_prices"
+                    ) as mock_neuro_prices,
+                    patch(
+                        "modelloader.CailaProvider.fetch_prices"
+                    ) as mock_caila_prices,
+                    patch(
+                        "modelloader.AgentPlatformProvider.fetch_prices"
+                    ) as mock_agent_prices,
+                ):
+                    mock_router_prices.return_value = {
+                        "gpt-4": {"prompt": 0.01, "completion": 0.02}
+                    }
+                    mock_neuro_prices.return_value = None
+                    mock_caila_prices.return_value = None
+                    mock_agent_prices.return_value = None
+
+                    result = runner.invoke(
+                        cli,
+                        [
+                            "csv",
+                            "--field",
+                            "provider",
+                            "--field",
+                            "model_id",
+                            "--field",
+                            "object",
+                        ],
+                    )
+
+                    assert result.exit_code == 0
+                    assert "Данные экспортированы в" in result.output
+
+    def test_csv_command_no_data(self, runner, mock_auth_path, tmp_path):
+        """Test csv command when no data is available."""
+        with patch("modelloader.os.path.dirname") as mock_dirname:
+            mock_dirname.return_value = str(tmp_path)
+
+            with patch("modelloader.requests.Session") as mock_session_class:
+                mock_session = MagicMock()
+                mock_session_class.return_value = mock_session
+
+                mock_response = MagicMock()
+                mock_response.status_code = 200
+                mock_response.json.return_value = {"data": []}
+                mock_session.get.return_value = mock_response
+
+                result = runner.invoke(cli, ["csv"])
+
+                assert result.exit_code == 0
+                assert (
+                    "Не удалось получить данные ни от одного провайдера"
+                    in result.output
+                )
