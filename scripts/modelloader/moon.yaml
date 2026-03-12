@@ -9,3 +9,9 @@ tasks:
     command: "uv run modelloader.py"
     inputs:
       - "modelloader.py"
+
+  test:
+    command: "uv run --with pytest --with click --with requests pytest tests/ -v"
+    inputs:
+      - "modelloader.py"
+      - "tests/"

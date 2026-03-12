@@ -184,8 +184,33 @@ scripts/modelloader/
 │   ├── NeuroAPI.models.json
 │   ├── Cailaio.models.json
 │   └── AgentPlatform.models.json
+├── tests/                 # Test suite
+│   └── test_modelloader.py
 └── README.md              # This file
 ```
+
+## Testing
+
+The project includes a comprehensive test suite using pytest and Click's test runner.
+
+### Running Tests
+
+```bash
+# Using Moon (recommended)
+moon run modelloader:test
+
+# Or directly with uv
+uv run --with pytest --with click --with requests pytest tests/ -v
+```
+
+### Test Coverage
+
+- **CLI Help Tests**: Verify help output for main CLI and subcommands
+- **Models Command Tests**: Test `--provider`, `--json`, `--dump` flags
+- **Providers Command Tests**: Test provider filtering and JSON output
+- **Provider Class Tests**: Verify provider properties (name, base_url)
+- **Integration Tests**: Test API key retrieval and model fetching
+- **Error Handling Tests**: Test timeout, request exceptions, and missing auth
 
 ## Troubleshooting
 
