@@ -22,7 +22,7 @@ moon run <project>:<task>
 # Build all projects
 moon build
 
-# Test all projects  
+# Test all projects
 moon test
 
 # Clean build artifacts
@@ -187,13 +187,13 @@ except:  # Too broad
 ```python
 def fetch_models(provider: str) -> Optional[List[Dict]]:
     """Получает список моделей от провайдера.
-    
+
     Args:
         provider: Название провайдера (например, "RouterAI").
-        
+
     Returns:
         Список моделей или None в случае ошибки.
-        
+
     Raises:
         RequestException: При ошибке сети.
     """
@@ -252,3 +252,18 @@ When creating new configuration files:
 - Use environment variables or secure credential stores
 - Validate and sanitize all user inputs
 - Follow principle of least privilege
+
+### Commit Message Notation
+
+This project uses a specific commit message notation system for clear categorization:
+
+- **`+`** - for additions (new features, new files, new functionality)
+- **`~`** - for changes (modifications to existing code, refactoring, updates)
+- **`!`** - for bug fixes (error corrections, issue resolutions)
+
+Examples:
+- `+ add user authentication system` - Adding new authentication feature
+- `~ refactor database connection logic` - Modifying existing database code
+- `! fix memory leak in data processing` - Fixing a memory leak bug
+
+This notation helps quickly identify the nature of changes and maintain a consistent commit history.
