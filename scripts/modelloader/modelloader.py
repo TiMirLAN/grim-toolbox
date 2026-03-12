@@ -131,7 +131,18 @@ def cli():
     "--provider",
     help="Фильтрация моделей по провайдеру (RouterAI, NeuroAPI, Caila.io, AgentPlatform)",
 )
-def models(provider: Optional[str]):
+@click.option(
+    "--dump",
+    is_flag=True,
+    help="Сохранить модели в JSON файлы в директории data",
+)
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Выводить модели в формате JSON",
+)
+def models(provider: Optional[str], dump: bool, json_output: bool):
     """Отображает список моделей от всех провайдеров или от указанного провайдера."""
     providers = [
         RouterAIProvider(),
@@ -151,6 +162,7 @@ def models(provider: Optional[str]):
             return
 
     results = {}
+    all_models = {}
 
     for provider_obj in providers:
         click.echo(f"\n--- Получаем модели от {provider_obj.name} ---")
@@ -164,21 +176,46 @@ def models(provider: Optional[str]):
             click.echo(f"⚠️ Список моделей пуст для {provider_obj.name}")
         else:
             results[provider_obj.name] = f"Найдено моделей: {len(models)}"
-            # Сохраняем модели в файл
-            filename = f"{provider_obj.name.replace('.', '')}.models.json"
-            with open(filename, "w", encoding="utf-8") as f:
-                json.dump(models, f, ensure_ascii=False, indent=2)
-            click.echo(f"✓ Модели сохранены в {filename}")
-            # Выводим первые 3 модели для примера
-            click.echo(f"Первые 3 модели ({provider_obj.name}):")
-            pprint.pprint(models[:3])
+            all_models[provider_obj.name] = models
 
-    # Финальный отчёт
-    click.echo("\n" + "=" * 50)
-    click.echo("ФИНАЛЬНЫЙ ОТЧЁТ")
-    click.echo("=" * 50)
-    for provider_name, status in results.items():
-        click.echo(f"{provider_name}: {status}")
+            # Сохраняем модели в файл в директории data при --dump
+            if dump:
+                data_dir = os.path.join(os.path.dirname(__file__), "data")
+                os.makedirs(data_dir, exist_ok=True)
+                filename = f"{provider_obj.name.replace('.', '')}.models.json"
+                filepath = os.path.join(data_dir, filename)
+                with open(filepath, "w", encoding="utf-8") as f:
+                    json.dump(models, f, ensure_ascii=False, indent=2)
+                click.echo(f"✓ Модели сохранены в data/{filename}")
+            else:
+                # Сохраняем модели в файл по старому поведению (если не --dump)
+                filename = f"{provider_obj.name.replace('.', '')}.models.json"
+                with open(filename, "w", encoding="utf-8") as f:
+                    json.dump(models, f, ensure_ascii=False, indent=2)
+                click.echo(f"✓ Модели сохранены в {filename}")
+
+            # Выводим первые 3 модели для примера, если не --json
+            if not json_output:
+                click.echo(f"Первые 3 модели ({provider_obj.name}):")
+                pprint.pprint(models[:3])
+
+    # Вывод результатов
+    if json_output:
+        # Вывод в формате JSON
+        output = {}
+        for provider_name, status in results.items():
+            if isinstance(status, str) and status.startswith("Найдено моделей"):
+                output[provider_name] = all_models.get(provider_name, [])
+            else:
+                output[provider_name] = status
+        click.echo(json.dumps(output, ensure_ascii=False, indent=2))
+    else:
+        # Финальный отчёт
+        click.echo("\n" + "=" * 50)
+        click.echo("ФИНАЛЬНЫЙ ОТЧЁТ")
+        click.echo("=" * 50)
+        for provider_name, status in results.items():
+            click.echo(f"{provider_name}: {status}")
 
 
 @cli.command()  # pyright: ignore[reportFunctionMemberAccess]
@@ -186,7 +223,13 @@ def models(provider: Optional[str]):
     "--provider",
     help="Информация о конкретном провайдере (RouterAI, NeuroAPI, Caila.io, AgentPlatform)",
 )
-def providers(provider: Optional[str]):
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Выводить информацию о провайдере в формате JSON",
+)
+def providers(provider: Optional[str], json_output: bool):
     """Отображает информацию о всех провайдерах или о конкретном провайдере."""
     providers_list = [
         RouterAIProvider(),
@@ -205,16 +248,28 @@ def providers(provider: Optional[str]):
             )
             return
 
-    for prov in providers_list:
-        click.echo(f"\n--- Информация о провайдере: {prov.name} ---")
-        click.echo(f"Название: {prov.name}")
-        click.echo(f"Базовый URL: {prov.base_url}")
+    output_data = {}
 
-        api_key = prov.get_api_key()
-        if api_key:
-            click.echo(f"API ключ: {'Доступен' if api_key else 'Не найден'}")
+    for prov in providers_list:
+        if json_output:
+            output_data[prov.name] = {
+                "name": prov.name,
+                "base_url": prov.base_url,
+                "api_key": "Доступен" if prov.get_api_key() else "Не найден",
+            }
         else:
-            click.echo("API ключ: Не найден")
+            click.echo(f"\n--- Информация о провайдере: {prov.name} ---")
+            click.echo(f"Название: {prov.name}")
+            click.echo(f"Базовый URL: {prov.base_url}")
+
+            api_key = prov.get_api_key()
+            if api_key:
+                click.echo(f"API ключ: Доступен")
+            else:
+                click.echo("API ключ: Не найден")
+
+    if json_output:
+        click.echo(json.dumps(output_data, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
