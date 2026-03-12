@@ -87,6 +87,11 @@ class BaseProvider:
             print(f"Неверный JSON от {self.name}: {e}")
             return None
 
+    def fetch_prices(self):
+        raise NotImplementedError(
+            "Метод fetch_prices должен быть реализован в подклассе."
+        )
+
 
 class RouterAIProvider(BaseProvider):
     """Провайдер RouterAI."""
@@ -95,13 +100,91 @@ class RouterAIProvider(BaseProvider):
     BASE_URL = "https://routerai.ru/api/v1"
     AUTH_OPENJSON_ID = "routerai"
 
+    def fetch_prices(self) -> Optional[Dict]:
+        """
+        Получает цены моделей от RouterAI.
+
+        Returns:
+            Словарь с ценами или None в случае ошибки
+        """
+        api_key = self.get_api_key()
+        if not api_key:
+            return None
+
+        url = f"{self.base_url}/models"
+        headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
+
+        try:
+            response = self.session.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            if "data" in data:
+                prices = {}
+                for model in data["data"]:
+                    model_id = model.get("id", "unknown")
+                    pricing = model.get("pricing", {})
+                    if pricing:
+                        prices[model_id] = {
+                            "prompt": pricing.get("prompt"),
+                            "completion": pricing.get("completion"),
+                        }
+                    else:
+                        prices[model_id] = {"info": "Цены недоступны"}
+                return prices
+            return None
+        except requests.exceptions.Timeout as e:
+            print(f"Таймаут при запросе цен от {self.name}: {e}")
+            return None
+        except requests.exceptions.RequestException as e:
+            print(f"Ошибка при запросе цен от {self.name}: {e}")
+            return None
+        except ValueError as e:
+            print(f"Неверный JSON при запросе цен от {self.name}: {e}")
+            return None
+
 
 class NeuroAPIProvider(BaseProvider):
     """Провайдер NeuroAPI."""
 
     NAME = "NeuroAPI"
     BASE_URL = "https://neuroapi.host/v1"
-    AUTH_OPENJSON_ID = "neuroapis"
+    AUTH_OPENJSON_ID = "neuroapi"
+
+    def fetch_prices(self) -> Optional[Dict]:
+        """
+        Получает цены моделей от NeuroAPI.
+
+        Returns:
+            Словарь с ценами или None в случае ошибки
+        """
+        api_key = self.get_api_key()
+        if not api_key:
+            return None
+
+        url = f"{self.base_url}/models"
+        headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
+
+        try:
+            response = self.session.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            if "data" in data:
+                models = data["data"]
+                prices = {}
+                for model in models:
+                    model_id = model.get("id", "unknown")
+                    prices[model_id] = {"info": "Цены недоступны через API"}
+                return prices
+            return None
+        except requests.exceptions.Timeout as e:
+            print(f"Таймаут при запросе цен от {self.name}: {e}")
+            return None
+        except requests.exceptions.RequestException as e:
+            print(f"Ошибка при запросе цен от {self.name}: {e}")
+            return None
+        except ValueError as e:
+            print(f"Неверный JSON при запросе цен от {self.name}: {e}")
+            return None
 
 
 class CailaProvider(BaseProvider):
@@ -264,6 +347,29 @@ def providers(provider: Optional[str], json_output: bool):
 
     if json_output:
         click.echo(json.dumps(output_data, ensure_ascii=False, indent=2))
+
+
+@cli.command()  # pyright: ignore[reportFunctionMemberAccess]
+def prices():
+    """Вызывает метод fetch_prices для всех провайдеров и отображает результаты."""
+    providers_list = [
+        RouterAIProvider(),
+        NeuroAPIProvider(),
+        CailaProvider(),
+        AgentPlatformProvider(),
+    ]
+
+    for provider in providers_list:
+        try:
+            prices_data = provider.fetch_prices()
+            if prices_data:
+                click.echo(f"Цены для {provider.name}:")
+                for model, price in prices_data.items():
+                    click.echo(f"  {model}: {price}")
+            else:
+                click.echo(f"Не удалось получить цены для {provider.name}")
+        except NotImplementedError:
+            click.echo(f"Метод fetch_prices не реализован для {provider.name}")
 
 
 if __name__ == "__main__":
