@@ -546,11 +546,17 @@ def prices():
                             if prompt_orig and completion_orig:
                                 prompt_per_million = prompt_orig * 1_000_000
                                 completion_per_million = completion_orig * 1_000_000
-                                click.echo(
-                                    f"    Prompt: {prompt_orig} USD/токен → {prompt_per_million:,.2f} руб/1M токенов"
+                                prompt_rub = click.style(
+                                    f"{prompt_per_million:,.2f}", fg="green"
+                                )
+                                completion_rub = click.style(
+                                    f"{completion_per_million:,.2f}", fg="green"
                                 )
                                 click.echo(
-                                    f"    Completion: {completion_orig} USD/токен → {completion_per_million:,.2f} руб/1M токенов"
+                                    f"    Prompt: {prompt_orig} USD/токен → {prompt_rub} руб/1M токенов"
+                                )
+                                click.echo(
+                                    f"    Completion: {completion_orig} USD/токен → {completion_rub} руб/1M токенов"
                                 )
                             else:
                                 click.echo(f"    {price}")
@@ -563,12 +569,33 @@ def prices():
 
                             click.echo(f"  {model}:")
                             if input_price and output_price:
-                                click.echo(
-                                    f"    Input: {input_price:,.2f} руб/1M токенов"
+                                input_rub = click.style(
+                                    f"{input_price:,.2f}", fg="green"
                                 )
-                                click.echo(
-                                    f"    Output: {output_price:,.2f} руб/1M токенов"
+                                output_rub = click.style(
+                                    f"{output_price:,.2f}", fg="green"
                                 )
+                                click.echo(f"    Input: {input_rub} руб/1M токенов")
+                                click.echo(f"    Output: {output_rub} руб/1M токенов")
+                            else:
+                                click.echo(f"    {price}")
+                            if conversion_note:
+                                click.echo(f"    Примечание: {conversion_note}")
+                        elif "input" in price and "output" in price:
+                            # AgentPlatform формат
+                            input_price = price.get("input")
+                            output_price = price.get("output")
+
+                            click.echo(f"  {model}:")
+                            if input_price and output_price:
+                                input_rub = click.style(
+                                    f"{input_price:,.2f} руб/1M токенов", fg="green"
+                                )
+                                output_rub = click.style(
+                                    f"{output_price:,.2f} руб/1M токенов", fg="green"
+                                )
+                                click.echo(f"    Input: → {input_rub}")
+                                click.echo(f"    Output: → {output_rub}")
                             else:
                                 click.echo(f"    {price}")
                             if conversion_note:
