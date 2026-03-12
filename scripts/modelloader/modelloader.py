@@ -15,18 +15,25 @@ from typing import Dict, List, Optional, Any
 class BaseProvider:
     """Базовый класс для всех провайдеров моделей."""
 
-    def __init__(self, name: str, base_url: str):
+    NAME: str = ""
+    BASE_URL: str = ""
+
+    def __init__(self):
         """
         Инициализация базового провайдера.
-
-        Args:
-            name: Название провайдера
-            base_url: Базовый URL для API
         """
-        self.name = name
-        self.base_url = base_url
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "LLM Price Monitor Script/1.0"})
+
+    @property
+    def name(self) -> str:
+        """Имя провайдера (только для чтения)."""
+        return self.NAME
+
+    @property
+    def base_url(self) -> str:
+        """Базовый URL провайдера (только для чтения)."""
+        return self.BASE_URL
 
     def get_api_key(self) -> Optional[str]:
         """
@@ -81,29 +88,29 @@ class BaseProvider:
 class RouterAIProvider(BaseProvider):
     """Провайдер RouterAI."""
 
-    def __init__(self):
-        super().__init__("RouterAI", "https://routerai.ru/api/v1")
+    NAME = "RouterAI"
+    BASE_URL = "https://routerai.ru/api/v1"
 
 
 class NeuroAPIProvider(BaseProvider):
     """Провайдер NeuroAPI."""
 
-    def __init__(self):
-        super().__init__("NeuroAPI", "https://neuroapi.host/v1")
+    NAME = "NeuroAPI"
+    BASE_URL = "https://neuroapi.host/v1"
 
 
 class CailaProvider(BaseProvider):
     """Провайдер Caila.io."""
 
-    def __init__(self):
-        super().__init__("Caila.io", "https://caila.io/api/adapters/openai-direct")
+    NAME = "Caila.io"
+    BASE_URL = "https://caila.io/api/adapters/openai-direct"
 
 
 class AgentPlatformProvider(BaseProvider):
     """Провайдер AgentPlatform."""
 
-    def __init__(self):
-        super().__init__("AgentPlatform", "https://litellm.tokengate.ru/v1")
+    NAME = "AgentPlatform"
+    BASE_URL = "https://litellm.tokengate.ru/v1"
 
 
 def main():
