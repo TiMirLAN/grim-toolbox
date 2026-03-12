@@ -24,12 +24,38 @@ The script uses [uv](https://github.com/astral-sh/uv) for dependency management.
 
 ### Running the Script
 
+The modelloader script is part of a Moon workspace. Use the following commands to run it:
+
 ```bash
 # Using Moon (recommended)
 moon run modelloader:run [COMMAND] [OPTIONS]
 
 # Or directly with uv
 uv run modelloader.py [COMMAND] [OPTIONS]
+
+# Run tests
+moon run modelloader:test
+```
+
+**Examples:**
+```bash
+# List models from all providers
+moon run modelloader:run -- models
+
+# List models from specific provider
+moon run modelloader:run -- models --provider RouterAI
+
+# Save models to data directory
+moon run modelloader:run -- models --dump
+
+# Output models in JSON format
+moon run modelloader:run -- models --json
+
+# Show prices with currency conversion
+moon run modelloader:run -- prices
+
+# Export to CSV
+moon run modelloader:run -- csv
 ```
 
 ### Commands

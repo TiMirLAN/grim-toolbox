@@ -12,9 +12,85 @@ import os
 import pprint
 from datetime import datetime
 from typing import Dict, List, Optional
+import time
 
 import click  # pyright: ignore[reportMissingImports, reportMissingModuleSource]
 import requests  # pyright: ignore[reportMissingModuleSource]
+
+# Кэш для курса валют
+_currency_cache = {"rate": None, "timestamp": 0, "currency": "USD"}
+
+
+def get_usd_rate_from_cbr() -> Optional[float]:
+    """
+    Получает курс доллара к рублю от ЦБРФ.
+
+    Returns:
+        Курс USD/RUB или None в случае ошибки
+    """
+    global _currency_cache
+
+    # Проверяем кэш (обновляем раз в час)
+    current_time = time.time()
+    if (
+        _currency_cache["rate"] is not None
+        and current_time - _currency_cache["timestamp"] < 3600
+    ):
+        return _currency_cache["rate"]
+
+    try:
+        # Используем официальный API ЦБРФ
+        response = requests.get(
+            "https://www.cbr-xml-daily.ru/daily_json.js", timeout=10
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        if "Valute" in data and "USD" in data["Valute"]:
+            rate = data["Valute"]["USD"]["Value"]
+            _currency_cache = {
+                "rate": rate,
+                "timestamp": current_time,
+                "currency": "USD",
+            }
+            return rate
+
+    except requests.exceptions.RequestException as e:
+        print(f"Ошибка при получении курса ЦБРФ: {e}")
+    except (KeyError, ValueError) as e:
+        print(f"Ошибка парсинга данных ЦБРФ: {e}")
+
+    return None
+
+
+def convert_to_rub_per_million_tokens(
+    price_per_token: Optional[float], currency: str = "USD"
+) -> Optional[float]:
+    """
+    Конвертирует цену в рубли за 1 миллион токенов.
+
+    Args:
+        price_per_token: Цена за один токен
+        currency: Валюта исходной цены ("USD" или "RUB")
+
+    Returns:
+        Цена в рублях за 1 миллион токенов или None
+    """
+    if price_per_token is None:
+        return None
+
+    if currency == "RUB":
+        # Если уже в рублях, просто умножаем на 1M
+        return price_per_token * 1000000
+
+    elif currency == "USD":
+        # Конвертируем из USD в RUB
+        usd_rate = get_usd_rate_from_cbr()
+        if usd_rate is None:
+            return None
+        return price_per_token * 1000000 * usd_rate
+
+    return None
 
 
 class BaseProvider:
@@ -127,9 +203,34 @@ class RouterAIProvider(BaseProvider):
                     model_id = model.get("id", "unknown")
                     pricing = model.get("pricing", {})
                     if pricing:
+                        prompt_price = pricing.get("prompt")
+                        completion_price = pricing.get("completion")
+
+                        # RouterAI API возвращает цены в USD за 1 миллион токенов
+                        # Пример: 3.083652e-05 USD за токен = 30.83652 USD за 1M токенов
+                        # Но по анализу API, значения уже в USD за 1M токенов
+                        if prompt_price and completion_price:
+                            usd_rate = get_usd_rate_from_cbr()
+                            if usd_rate:
+                                prompt_price_rub = prompt_price * usd_rate
+                                completion_price_rub = completion_price * usd_rate
+                                conversion_note = "RouterAI цены в USD за 1M токенов, конвертированы в RUB за 1M токенов"
+                            else:
+                                prompt_price_rub = None
+                                completion_price_rub = None
+                                conversion_note = "RouterAI цены в USD за 1M токенов, конвертация невозможна (нет курса)"
+                        else:
+                            prompt_price_rub = None
+                            completion_price_rub = None
+                            conversion_note = "RouterAI цены недоступны для конвертации"
+
                         prices[model_id] = {
-                            "prompt": pricing.get("prompt"),
-                            "completion": pricing.get("completion"),
+                            "prompt": prompt_price,
+                            "completion": completion_price,
+                            "prompt_rub_per_million": prompt_price_rub,
+                            "completion_rub_per_million": completion_price_rub,
+                            "currency": "USD",
+                            "conversion_note": conversion_note,
                         }
                     else:
                         prices[model_id] = {"info": "Цены недоступны"}
@@ -239,9 +340,18 @@ class AgentPlatformProvider(BaseProvider):
                 for item in data["data"]["items"]:
                     model_name = item.get("model_name", "unknown")
                     model_info = item.get("model_info", {})
+                    input_price = model_info.get("input_cost_per_token")
+                    output_price = model_info.get("output_cost_per_token")
+
+                    # AgentPlatform уже предоставляет цены в рублях за 1M токенов
+                    # Добавляем их как есть, плюс исходные значения для отладки
                     prices[model_name] = {
-                        "input": model_info.get("input_cost_per_token"),
-                        "output": model_info.get("output_cost_per_token"),
+                        "input": input_price,
+                        "output": output_price,
+                        "input_rub_per_million": input_price,
+                        "output_rub_per_million": output_price,
+                        "currency": "RUB",
+                        "conversion_note": "AgentPlatform цены в RUB за 1M токенов",
                     }
                 return prices
             return None
@@ -412,17 +522,70 @@ def prices():
         AgentPlatformProvider(),
     ]
 
+    # Выводим информацию о курсе валют
+    usd_rate = get_usd_rate_from_cbr()
+    if usd_rate:
+        click.echo(f"Курс USD/RUB (ЦБРФ): {usd_rate:.2f}")
+    else:
+        click.echo("Предупреждение: Не удалось получить курс USD/RUB от ЦБРФ")
+    click.echo()
+
     for provider in providers_list:
         try:
             prices_data = provider.fetch_prices()
             if prices_data:
                 click.echo(f"Цены для {provider.name}:")
                 for model, price in prices_data.items():
-                    click.echo(f"  {model}: {price}")
+                    if isinstance(price, dict):
+                        # Форматируем вывод для моделей с детальной информацией о ценах
+                        currency = price.get("currency", "N/A")
+                        conversion_note = price.get("conversion_note", "")
+
+                        if "prompt" in price and "completion" in price:
+                            # RouterAI формат
+                            prompt_orig = price.get("prompt")
+                            completion_orig = price.get("completion")
+                            prompt_rub = price.get("prompt_rub_per_million")
+                            completion_rub = price.get("completion_rub_per_million")
+
+                            click.echo(f"  {model}:")
+                            if prompt_orig and completion_orig:
+                                click.echo(
+                                    f"    Prompt: {prompt_orig} USD/токен → {prompt_rub:,.0f} руб/1M токенов"
+                                )
+                                click.echo(
+                                    f"    Completion: {completion_orig} USD/токен → {completion_rub:,.0f} руб/1M токенов"
+                                )
+                            else:
+                                click.echo(f"    {price}")
+                            if conversion_note:
+                                click.echo(f"    Примечание: {conversion_note}")
+                        elif "input" in price and "output" in price:
+                            # AgentPlatform формат
+                            input_price = price.get("input")
+                            output_price = price.get("output")
+
+                            click.echo(f"  {model}:")
+                            if input_price and output_price:
+                                click.echo(
+                                    f"    Input: {input_price:,.0f} руб/1M токенов"
+                                )
+                                click.echo(
+                                    f"    Output: {output_price:,.0f} руб/1M токенов"
+                                )
+                            else:
+                                click.echo(f"    {price}")
+                            if conversion_note:
+                                click.echo(f"    Примечание: {conversion_note}")
+                        else:
+                            click.echo(f"  {model}: {price}")
+                    else:
+                        click.echo(f"  {model}: {price}")
             else:
                 click.echo(f"Не удалось получить цены для {provider.name}")
         except NotImplementedError:
             click.echo(f"Метод fetch_prices не реализован для {provider.name}")
+        click.echo()
 
 
 @cli.command()  # pyright: ignore[reportFunctionMemberAccess]
@@ -441,12 +604,12 @@ def csv(field):
     CSV файл сохраняется в директории data с именем, включающим дату и время создания, например: llm_prices_2024-06-01_12-00-00.csv.
     """
 
-    # Определяем поля по умолчанию
+    # Определяем поля по умолчанию (теперь используем конвертированные цены в рублях за 1M токенов)
     default_fields = [
         "provider",
         "model_id",
-        "prompt_price",
-        "completion_price",
+        "prompt_price_rub_per_million",
+        "completion_price_rub_per_million",
     ]
 
     # Используем указанные поля или поля по умолчанию
@@ -487,19 +650,37 @@ def csv(field):
             if prices and model_id in prices:
                 price_info = prices[model_id]
 
-                # RouterAI использует prompt/completion
-                if "prompt" in price_info:
-                    model_data["prompt_price"] = price_info["prompt"]
-                    model_data["completion_price"] = price_info["completion"]
-                # AgentPlatform использует input/output
-                elif "input" in price_info:
-                    model_data["prompt_price"] = price_info["input"]
-                    model_data["completion_price"] = price_info["output"]
+                # RouterAI использует prompt/completion (конвертированные цены)
+                if "prompt_rub_per_million" in price_info:
+                    model_data["prompt_price_rub_per_million"] = price_info[
+                        "prompt_rub_per_million"
+                    ]
+                    model_data["completion_price_rub_per_million"] = price_info[
+                        "completion_rub_per_million"
+                    ]
+                    # Для совместимости добавляем исходные цены
+                    model_data["prompt_price"] = price_info.get("prompt", "")
+                    model_data["completion_price"] = price_info.get("completion", "")
+                # AgentPlatform использует input/output (уже в рублях за 1M токенов)
+                elif "input_rub_per_million" in price_info:
+                    model_data["prompt_price_rub_per_million"] = price_info[
+                        "input_rub_per_million"
+                    ]
+                    model_data["completion_price_rub_per_million"] = price_info[
+                        "output_rub_per_million"
+                    ]
+                    # Для совместимости добавляем исходные цены
+                    model_data["prompt_price"] = price_info.get("input", "")
+                    model_data["completion_price"] = price_info.get("output", "")
                 # NeuroAPI и Caila не предоставляют цены через API
                 else:
+                    model_data["prompt_price_rub_per_million"] = ""
+                    model_data["completion_price_rub_per_million"] = ""
                     model_data["prompt_price"] = ""
                     model_data["completion_price"] = ""
             else:
+                model_data["prompt_price_rub_per_million"] = ""
+                model_data["completion_price_rub_per_million"] = ""
                 model_data["prompt_price"] = ""
                 model_data["completion_price"] = ""
 
