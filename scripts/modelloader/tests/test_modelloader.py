@@ -1,3 +1,4 @@
+import glob as glob_module
 import json
 import os
 import sys
@@ -576,3 +577,69 @@ class TestCSVCommand:
                     "Не удалось получить данные ни от одного провайдера"
                     in result.output
                 )
+
+    def test_csv_command_price_rounding(self, runner, mock_auth_path, tmp_path):
+        """Test csv command rounds prices to 2 decimal places."""
+        with patch("modelloader.os.path.dirname") as mock_dirname:
+            mock_dirname.return_value = str(tmp_path)
+
+            with patch("modelloader.requests.Session") as mock_session_class:
+                mock_session = MagicMock()
+                mock_session_class.return_value = mock_session
+
+                mock_response = MagicMock()
+                mock_response.status_code = 200
+                mock_response.json.return_value = {
+                    "data": [
+                        {
+                            "id": "gpt-4",
+                            "object": "model",
+                            "created": 1234567890,
+                        }
+                    ]
+                }
+                mock_session.get.return_value = mock_response
+
+                with (
+                    patch(
+                        "modelloader.RouterAIProvider.fetch_prices"
+                    ) as mock_router_prices,
+                    patch(
+                        "modelloader.NeuroAPIProvider.fetch_prices"
+                    ) as mock_neuro_prices,
+                    patch(
+                        "modelloader.CailaProvider.fetch_prices"
+                    ) as mock_caila_prices,
+                    patch(
+                        "modelloader.AgentPlatformProvider.fetch_prices"
+                    ) as mock_agent_prices,
+                ):
+                    mock_router_prices.return_value = {
+                        "gpt-4": {
+                            "prompt": 0.0001798797,
+                            "completion": 0.0014390376,
+                            "prompt_rub_per_million": 179.8797,
+                            "completion_rub_per_million": 1439.0376,
+                            "currency": "RUB",
+                        }
+                    }
+                    mock_neuro_prices.return_value = None
+                    mock_caila_prices.return_value = None
+                    mock_agent_prices.return_value = None
+
+                    result = runner.invoke(cli, ["csv"])
+
+                    assert result.exit_code == 0
+                    # Read the generated CSV file and check rounded values
+                    csv_files = glob_module.glob(
+                        str(tmp_path / "data" / "llm_prices_*.csv")
+                    )
+                    assert len(csv_files) == 1, (
+                        f"Expected 1 CSV file, found {csv_files}"
+                    )
+
+                    with open(csv_files[0], "r") as f:
+                        csv_content = f.read()
+
+                    assert "179.88" in csv_content
+                    assert "1439.04" in csv_content
