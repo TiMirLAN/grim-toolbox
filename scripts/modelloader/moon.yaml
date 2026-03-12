@@ -1,0 +1,11 @@
+language: "python"
+
+project:
+  title: "modelloader"
+  description: "A tool to load models from various llm providers."
+
+tasks:
+  run:
+    command: "uv run modelloader.py"
+    inputs:
+      - "modelloader.py"
