@@ -19,6 +19,7 @@ class BaseProvider:
 
     NAME: str = ""
     BASE_URL: str = ""
+    AUTH_OPENJSON_ID: str = ""
 
     def __init__(self):
         """
@@ -48,8 +49,8 @@ class BaseProvider:
         try:
             with open(auth_path, "r") as f:
                 auth_data = json.load(f)
-            if self.name in auth_data:
-                return auth_data[self.name].get("key")
+            if self.AUTH_OPENJSON_ID in auth_data:
+                return auth_data[self.AUTH_OPENJSON_ID].get("key")
         except (FileNotFoundError, json.JSONDecodeError) as e:
             print(f"Ошибка при чтении auth.json: {e}")
         return None
@@ -92,6 +93,7 @@ class RouterAIProvider(BaseProvider):
 
     NAME = "RouterAI"
     BASE_URL = "https://routerai.ru/api/v1"
+    AUTH_OPENJSON_ID = "routerai"
 
 
 class NeuroAPIProvider(BaseProvider):
@@ -99,6 +101,7 @@ class NeuroAPIProvider(BaseProvider):
 
     NAME = "NeuroAPI"
     BASE_URL = "https://neuroapi.host/v1"
+    AUTH_OPENJSON_ID = "neuroapis"
 
 
 class CailaProvider(BaseProvider):
@@ -106,6 +109,7 @@ class CailaProvider(BaseProvider):
 
     NAME = "Caila.io"
     BASE_URL = "https://caila.io/api/adapters/openai-direct"
+    AUTH_OPENJSON_ID = "caila-oai"
 
 
 class AgentPlatformProvider(BaseProvider):
@@ -113,6 +117,7 @@ class AgentPlatformProvider(BaseProvider):
 
     NAME = "AgentPlatform"
     BASE_URL = "https://litellm.tokengate.ru/v1"
+    AUTH_OPENJSON_ID = "agentplatform"
 
 
 @click.group()
