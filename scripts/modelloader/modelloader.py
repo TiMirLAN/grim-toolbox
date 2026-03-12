@@ -8,7 +8,7 @@
 import json
 import os
 import pprint
-import requests
+import requests  # pyright: ignore[reportMissingModuleSource]
 from typing import Dict, List, Optional
 
 # Настройка сессий для каждого провайдера
