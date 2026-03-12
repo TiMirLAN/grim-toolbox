@@ -5,8 +5,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-from click.testing import CliRunner
+import pytest  # pyright: ignore[reportMissingImports]
+from click.testing import CliRunner  # pyright: ignore[reportMissingImports]
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -381,7 +381,7 @@ class TestProviderIntegration:
 
     def test_fetch_models_timeout(self, mock_auth_path):
         """Test model fetching with timeout error."""
-        import requests
+        import requests  # pyright: ignore[reportMissingModuleSource]
 
         from modelloader import RouterAIProvider
 
@@ -396,7 +396,7 @@ class TestProviderIntegration:
 
     def test_fetch_models_request_exception(self, mock_auth_path):
         """Test model fetching with request exception."""
-        import requests
+        import requests  # pyright: ignore[reportMissingModuleSource]
 
         from modelloader import RouterAIProvider
 

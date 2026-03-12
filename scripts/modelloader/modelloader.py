@@ -187,12 +187,6 @@ def models(provider: Optional[str], dump: bool, json_output: bool):
                 with open(filepath, "w", encoding="utf-8") as f:
                     json.dump(models, f, ensure_ascii=False, indent=2)
                 click.echo(f"✓ Модели сохранены в data/{filename}")
-            else:
-                # Сохраняем модели в файл по старому поведению (если не --dump)
-                filename = f"{provider_obj.name.replace('.', '')}.models.json"
-                with open(filename, "w", encoding="utf-8") as f:
-                    json.dump(models, f, ensure_ascii=False, indent=2)
-                click.echo(f"✓ Модели сохранены в {filename}")
 
             # Выводим первые 3 модели для примера, если не --json
             if not json_output:
