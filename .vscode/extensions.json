@@ -5,6 +5,7 @@
     "tamasfe.even-better-toml",
     "charliermarsh.ruff",
     "editorconfig.editorconfig",
-    "treetsidesoftware.code-spell-checker"
+    "treetsidesoftware.code-spell-checker",
+    "streetsidesoftware.code-spell-checker-russian"
   ]
 }
