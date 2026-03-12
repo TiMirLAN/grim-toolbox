@@ -9,167 +9,131 @@ import json
 import os
 import pprint
 import requests  # pyright: ignore[reportMissingModuleSource]
-from typing import Dict, List, Optional
-
-# Настройка сессий для каждого провайдера
-session = requests.Session()
-session.headers.update({"User-Agent": "LLM Price Monitor Script/1.0"})
+from typing import Dict, List, Optional, Any
 
 
-def get_api_key(provider_name: str) -> Optional[str]:
-    """Получает API‑ключ из ~/.local/share/opencode/auth.json."""
-    auth_path = os.path.expanduser("~/.local/share/opencode/auth.json")
-    try:
-        with open(auth_path, "r") as f:
-            auth_data = json.load(f)
-        if provider_name in auth_data:
-            return auth_data[provider_name].get("key")
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"Ошибка при чтении auth.json: {e}")
-    return None
+class BaseProvider:
+    """Базовый класс для всех провайдеров моделей."""
 
+    def __init__(self, name: str, base_url: str):
+        """
+        Инициализация базового провайдера.
 
-def fetch_routerai_models() -> Optional[List[Dict]]:
-    """Получает список моделей от RouterAI через OpenAI-compatible API."""
-    provider_name = "RouterAI"
-    api_key = get_api_key("routerai")
-    if not api_key:
+        Args:
+            name: Название провайдера
+            base_url: Базовый URL для API
+        """
+        self.name = name
+        self.base_url = base_url
+        self.session = requests.Session()
+        self.session.headers.update({"User-Agent": "LLM Price Monitor Script/1.0"})
+
+    def get_api_key(self) -> Optional[str]:
+        """
+        Получает API‑ключ из ~/.local/share/opencode/auth.json.
+
+        Returns:
+            API ключ или None, если не найден
+        """
+        auth_path = os.path.expanduser("~/.local/share/opencode/auth.json")
+        try:
+            with open(auth_path, "r") as f:
+                auth_data = json.load(f)
+            if self.name in auth_data:
+                return auth_data[self.name].get("key")
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"Ошибка при чтении auth.json: {e}")
         return None
 
-    url = "https://routerai.ru/api/v1/models"
-    headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
+    def fetch_models(self) -> Optional[List[Dict]]:
+        """
+        Получает список моделей от провайдера через OpenAI-compatible API.
 
-    try:
-        response = session.get(url, headers=headers, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        if "data" in data:
-            return data["data"]
-        return data
+        Returns:
+            Список моделей или None в случае ошибки
+        """
+        api_key = self.get_api_key()
+        if not api_key:
+            return None
 
-    except requests.exceptions.Timeout as e:
-        print(f"Таймаут при запросе к {provider_name}: {e}")
-        return None
-    except requests.exceptions.RequestException as e:
-        print(f"Ошибка при запросе к {provider_name}: {e}")
-        return None
-    except ValueError as e:
-        print(f"Неверный JSON от {provider_name}: {e}")
-        return None
+        url = f"{self.base_url}/models"
+        headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
 
+        try:
+            response = self.session.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            if "data" in data:
+                return data["data"]
+            return data
 
-def fetch_neuroapi_models() -> Optional[List[Dict]]:
-    """Получает список моделей от NeuroAPI через OpenAI-compatible API."""
-    provider_name = "NeuroAPI"
-    api_key = get_api_key("neuroapi")
-    if not api_key:
-        return None
-
-    url = "https://neuroapi.host/v1/models"
-    headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
-
-    try:
-        response = session.get(url, headers=headers, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        if "data" in data:
-            return data["data"]
-        return data
-    except requests.exceptions.Timeout as e:
-        print(f"Таймаут при запросе к {provider_name}: {e}")
-        return None
-    except requests.exceptions.RequestException as e:
-        print(f"Ошибка при запросе к {provider_name}: {e}")
-        return None
-    except ValueError as e:
-        print(f"Неверный JSON от {provider_name}: {e}")
-        return None
+        except requests.exceptions.Timeout as e:
+            print(f"Таймаут при запросе к {self.name}: {e}")
+            return None
+        except requests.exceptions.RequestException as e:
+            print(f"Ошибка при запросе к {self.name}: {e}")
+            return None
+        except ValueError as e:
+            print(f"Неверный JSON от {self.name}: {e}")
+            return None
 
 
-def fetch_caila_models() -> Optional[List[Dict]]:
-    """Получает список моделей от Caila.io через OpenAI-compatible API."""
-    provider_name = "Caila.io"
-    api_key = get_api_key("caila-oai")
-    if not api_key:
-        return None
+class RouterAIProvider(BaseProvider):
+    """Провайдер RouterAI."""
 
-    url = "https://caila.io/api/adapters/openai-direct/models"
-    headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
-
-    try:
-        response = session.get(url, headers=headers, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        if "data" in data:
-            return data["data"]
-        return data
-    except requests.exceptions.Timeout as e:
-        print(f"Таймаут при запросе к {provider_name}: {e}")
-        return None
-    except requests.exceptions.RequestException as e:
-        print(f"Ошибка при запросе к {provider_name}: {e}")
-        return None
-    except ValueError as e:
-        print(f"Неверный JSON от {provider_name}: {e}")
-        return None
+    def __init__(self):
+        super().__init__("RouterAI", "https://routerai.ru/api/v1")
 
 
-def fetch_agentplatform_models() -> Optional[List[Dict]]:
-    """Получает список моделей от AgentPlatform через OpenAI-compatible API."""
-    provider_name = "AgentPlatform"
-    api_key = get_api_key("agentplatform")
-    if not api_key:
-        return None
+class NeuroAPIProvider(BaseProvider):
+    """Провайдер NeuroAPI."""
 
-    url = "https://litellm.tokengate.ru/v1/models"
-    headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
+    def __init__(self):
+        super().__init__("NeuroAPI", "https://neuroapi.host/v1")
 
-    try:
-        response = session.get(url, headers=headers, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        if "data" in data:
-            return data["data"]
-        return data
-    except requests.exceptions.Timeout as e:
-        print(f"Таймаут при запросе к {provider_name}: {e}")
-        return None
-    except requests.exceptions.RequestException as e:
-        print(f"Ошибка при запросе к {provider_name}: {e}")
-        return None
-    except ValueError as e:
-        print(f"Неверный JSON от {provider_name}: {e}")
-        return None
+
+class CailaProvider(BaseProvider):
+    """Провайдер Caila.io."""
+
+    def __init__(self):
+        super().__init__("Caila.io", "https://caila.io/api/adapters/openai-direct")
+
+
+class AgentPlatformProvider(BaseProvider):
+    """Провайдер AgentPlatform."""
+
+    def __init__(self):
+        super().__init__("AgentPlatform", "https://litellm.tokengate.ru/v1")
 
 
 def main():
     """Основная функция — запускает запросы ко всем провайдерам."""
-    providers = {
-        "RouterAI": fetch_routerai_models,
-        "NeuroAPI": fetch_neuroapi_models,
-        "Caila.io": fetch_caila_models,
-        "AgentPlatform": fetch_agentplatform_models,
-    }
+    providers = [
+        RouterAIProvider(),
+        NeuroAPIProvider(),
+        CailaProvider(),
+        AgentPlatformProvider(),
+    ]
 
     results = {}
 
-    for provider_name, fetch_func in providers.items():
-        print(f"\n--- Получаем модели от {provider_name} ---")
-        models = fetch_func()
+    for provider in providers:
+        print(f"\n--- Получаем модели от {provider.name} ---")
+        models = provider.fetch_models()
 
         if models is None:
-            results[provider_name] = "Ошибка/Нет данных"
+            results[provider.name] = "Ошибка/Нет данных"
         elif len(models) == 0:
-            results[provider_name] = "Список пуст"
+            results[provider.name] = "Список пуст"
         else:
-            results[provider_name] = f"Найдено моделей: {len(models)}"
+            results[provider.name] = f"Найдено моделей: {len(models)}"
             # Сохраняем модели в файл
-            filename = f"{provider_name.replace('.', '')}.models.json"
+            filename = f"{provider.name.replace('.', '')}.models.json"
             with open(filename, "w", encoding="utf-8") as f:
                 json.dump(models, f, ensure_ascii=False, indent=2)
             print(f"Модели сохранены в {filename}")
             # Выводим первые 3 модели для примера
-            print(f"Первые 3 модели ({provider_name}):")
+            print(f"Первые 3 модели ({provider.name}):")
             pprint.pprint(models[:3])
 
     # Финальный отчёт
