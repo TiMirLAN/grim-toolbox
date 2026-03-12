@@ -200,7 +200,46 @@ class AgentPlatformProvider(BaseProvider):
 
     NAME = "AgentPlatform"
     BASE_URL = "https://litellm.tokengate.ru/v1"
+    PRICING_URL = "https://app.agentplatform.ru/api/v1/pricing/get"
     AUTH_OPENJSON_ID = "agentplatform"
+
+    def fetch_prices(self) -> Optional[Dict]:
+        """
+        Получает цены моделей от AgentPlatform.
+
+        Returns:
+            Словарь с ценами или None в случае ошибки
+        """
+        api_key = self.get_api_key()
+        if not api_key:
+            return None
+
+        headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
+
+        try:
+            response = self.session.get(self.PRICING_URL, headers=headers, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            if "data" in data and "items" in data["data"]:
+                prices = {}
+                for item in data["data"]["items"]:
+                    model_name = item.get("model_name", "unknown")
+                    model_info = item.get("model_info", {})
+                    prices[model_name] = {
+                        "input": model_info.get("input_cost_per_token"),
+                        "output": model_info.get("output_cost_per_token"),
+                    }
+                return prices
+            return None
+        except requests.exceptions.Timeout as e:
+            print(f"Таймаут при запросе цен от {self.name}: {e}")
+            return None
+        except requests.exceptions.RequestException as e:
+            print(f"Ошибка при запросе цен от {self.name}: {e}")
+            return None
+        except ValueError as e:
+            print(f"Неверный JSON при запросе цен от {self.name}: {e}")
+            return None
 
 
 @click.group()
