@@ -211,6 +211,54 @@ class TestModelsCommand:
         new_files = json_files_after - json_files_before
         assert len(new_files) == 0, f"Unexpected files created: {new_files}"
 
+    def test_models_json_without_dump_no_files(self, runner, mock_auth_path):
+        """Test models command with --json but without --dump creates no files."""
+        test_dir = Path(".")
+        json_files_before = set(test_dir.glob("*.models.json"))
+
+        with patch("modelloader.requests.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session_class.return_value = mock_session
+
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                "data": [{"id": "gpt-4", "object": "model"}]
+            }
+            mock_session.get.return_value = mock_response
+
+            result = runner.invoke(cli, ["models", "--json"])
+
+            assert result.exit_code == 0
+
+        json_files_after = set(test_dir.glob("*.models.json"))
+        new_files = json_files_after - json_files_before
+        assert len(new_files) == 0, f"Unexpected files created: {new_files}"
+
+    def test_models_provider_without_dump_no_files(self, runner, mock_auth_path):
+        """Test models command with --provider but without --dump creates no files."""
+        test_dir = Path(".")
+        json_files_before = set(test_dir.glob("*.models.json"))
+
+        with patch("modelloader.requests.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session_class.return_value = mock_session
+
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                "data": [{"id": "gpt-4", "object": "model"}]
+            }
+            mock_session.get.return_value = mock_response
+
+            result = runner.invoke(cli, ["models", "--provider", "RouterAI"])
+
+            assert result.exit_code == 0
+
+        json_files_after = set(test_dir.glob("*.models.json"))
+        new_files = json_files_after - json_files_before
+        assert len(new_files) == 0, f"Unexpected files created: {new_files}"
+
 
 class TestProvidersCommand:
     """Tests for the providers CLI command."""
