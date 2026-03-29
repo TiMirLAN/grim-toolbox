@@ -20,19 +20,45 @@ jobs:
         run: |
           VERSION=$(grep '^version = ' apps/extip-rust/Cargo.toml | sed 's/version = "\(.*\)"/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION"
 
       - name: Build package
         run: |
           cd apps/extip-rust
           makepkg --nodeps --skippgpcheck -D .
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Create Release and Upload Assets
+        uses: actions/github-script@v7
         with:
-          tag_name: extip-v${{ steps.version.outputs.version }}
-          name: extip-rust v${{ steps.version.outputs.version }}
-          body: "extip-rust release v${{ steps.version.outputs.version }}"
-          files: |
-            apps/extip-rust/extip-rust-*.pkg.tar.zst
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            const pkgDir = 'apps/extip-rust';
+            
+            // Create release
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: 'extip-v${{ steps.version.outputs.version }}',
+              name: 'extip-rust ${{ steps.version.outputs.version }}',
+              draft: false,
+              prerelease: false,
+              generate_release_notes: true
+            });
+            
+            // Upload assets from apps/extip-rust directory
+            const files = fs.readdirSync(pkgDir);
+            for (const file of files) {
+              if (file.endsWith('.pkg.tar.zst')) {
+                const assetPath = path.join(pkgDir, file);
+                await github.rest.repos.uploadReleaseAsset({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  release_id: release.data.id,
+                  name: file,
+                  data: fs.readFileSync(assetPath)
+                });
+                console.log(`Uploaded: ${file}`);
+              }
+            }
