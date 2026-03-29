@@ -1,2 +1,3 @@
 moon = "2.0.4"
 uv = "0.10.9"
+rust = "latest"
