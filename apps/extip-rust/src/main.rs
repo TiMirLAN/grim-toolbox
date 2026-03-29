@@ -10,7 +10,7 @@ mod commands;
 #[command(name = "extip-rust")]
 #[command(about = "External IP service with socket-based client")]
 struct Cli {
-    #[arg(short, long, default_value = "/tmp/extip.sock")]
+    #[arg(short, long, default_value = "/tmp/extip.sock", env = "EXTIP_SOCKET")]
     socket_path: PathBuf,
 
     #[command(subcommand)]
@@ -24,6 +24,8 @@ enum Commands {
 }
 
 fn main() {
+    dotenv::dotenv().ok();
+
     let cli = Cli::parse();
 
     match cli.command {
