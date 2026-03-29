@@ -1,4 +1,4 @@
-[![Build extip-rust](https://github.com/TiMirLAN/grim-toolbox/actions/workflows/extip-rust.yml/badge.svg)](https://github.com/TiMirLAN/grim-toolbox/actions/workflows/extip-rust.yml)
+[![Build extip-rust](https://github.com/TiMirLAN/grim-toolbox/actions/workflows/extip-rust.yml/badge.svg?branch=master)](https://github.com/TiMirLAN/grim-toolbox/actions/workflows/extip-rust.yml)
 
 # grim-toolbox
 
