@@ -1,6 +1,6 @@
 # Maintainer: timirlan <timirlan@example.com>
 pkgname=extip-rust
-pkgver=0.1.0
+pkgver=$(grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
 pkgrel=1
 pkgdesc="External IP service with socket-based client"
 arch=("x86_64")
