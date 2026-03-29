@@ -17,7 +17,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Layer;
 
-use super::client::{SimpleIpInfo, Status};
+use super::types::{SimpleIpInfo, Status};
 
 const UPDATING_TIMEOUT: f64 = 5.0;
 const IPTABLES_TIMEOUT: f64 = 2.0;
@@ -51,26 +51,8 @@ pub enum IpInfoClientError {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum ServiceStatus {
-    Ready,
-    Error,
-    Updating,
-}
-
-impl From<Status> for ServiceStatus {
-    fn from(s: Status) -> Self {
-        match s {
-            Status::Ready => ServiceStatus::Ready,
-            Status::Error => ServiceStatus::Error,
-            Status::Updating => ServiceStatus::Updating,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServiceStateResponse {
-    status: ServiceStatus,
+    status: Status,
     info: Option<SimpleIpInfo>,
     message: String,
 }
@@ -78,7 +60,7 @@ pub struct ServiceStateResponse {
 impl From<&ServiceStateInner> for ServiceStateResponse {
     fn from(s: &ServiceStateInner) -> Self {
         ServiceStateResponse {
-            status: s.status.clone().into(),
+            status: s.status.clone(),
             info: s.info.clone(),
             message: s.message.clone(),
         }

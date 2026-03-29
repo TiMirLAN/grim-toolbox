@@ -1,9 +1,10 @@
 use clap::Args;
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tinytemplate::TinyTemplate;
 use tokio::io::AsyncReadExt;
 use tokio::net::UnixStream;
+
+use super::types::{ServiceState, Status};
 
 #[derive(Args)]
 pub struct ClientArgs {
@@ -15,33 +16,6 @@ pub struct ClientArgs {
         help = "Specify how you want to display the IP info using placeholders like: {info.<field>}. Available fields: ip, asn, as_name, as_domain, country_code, country, continent_code, continent"
     )]
     pub info_format: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Status {
-    Ready,
-    Error,
-    Updating,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct SimpleIpInfo {
-    pub ip: String,
-    pub asn: String,
-    pub as_name: String,
-    pub as_domain: String,
-    pub country_code: String,
-    pub country: String,
-    pub continent_code: String,
-    pub continent: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ServiceState {
-    pub status: Status,
-    pub info: Option<SimpleIpInfo>,
-    pub message: String,
 }
 
 pub async fn fetch_info(socket_path: &PathBuf) -> Result<ServiceState, String> {
