@@ -14,10 +14,19 @@ CLI service for polybar to show external IP address.
 
 ### apps/extip-rust
 
-Rust implementation of extip (in development).
+Rust implementation of extip.
 
 - **Language**: Rust
 - **Build System**: Cargo
+- **Installation (Arch Linux)**:
+
+  With yay:
+
+  ```bash
+  yay -U --noconfirm "https://github.com/TiMirLAN/grim-toolbox/releases/download/extip-v<VERSION>/extip-rust-<VERSION>-1-x86_64.pkg.tar.zst"
+  ```
+
+  Replace `<VERSION>` with the latest version from `apps/extip-rust/Cargo.toml`.
 
 ### scripts/modelloader
 

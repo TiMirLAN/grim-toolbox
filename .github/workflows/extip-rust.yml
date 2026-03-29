@@ -1,0 +1,38 @@
+name: Build extip-rust
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Arch Linux
+        uses: jbaruz/archlinux@v1
+        with:
+          arch_version: base
+          update: true
+
+      - name: Get version from Cargo.toml
+        id: version
+        run: |
+          VERSION=$(grep '^version = ' apps/extip-rust/Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build package
+        run: |
+          cd apps/extip-rust
+          makepkg --nodeps --skippgpcheck -D .
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: extip-v${{ steps.version.outputs.version }}
+          name: extip-rust v${{ steps.version.outputs.version }}
+          body: "extip-rust release v${{ steps.version.outputs.version }}"
+          files: |
+            apps/extip-rust/extip-rust-*.pkg.tar.zst
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
