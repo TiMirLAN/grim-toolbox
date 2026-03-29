@@ -10,8 +10,9 @@ pub struct ClientArgs {
     #[arg(
         short,
         long,
-        default_value = "{{info.asn}} {{info.ip}}",
-        env = "EXTIP_INFO_FORMAT"
+        default_value = "{info.asn} {info.ip}",
+        env = "EXTIP_INFO_FORMAT",
+        help = "Specify how you want to display the IP info using placeholders like: {info.<field>}. Available fields: ip, asn, as_name, as_domain, country_code, country, continent_code, continent"
     )]
     pub info_format: String,
 }
@@ -61,8 +62,7 @@ pub async fn fetch_info(socket_path: &PathBuf) -> Result<ServiceState, String> {
 
 fn render_template(template_str: &str, state: &ServiceState) -> String {
     let mut tt = TinyTemplate::new();
-    let transformed = template_str.replace("{{", "{").replace("}}", "}");
-    tt.add_template("output", &transformed).unwrap();
+    tt.add_template("output", template_str).unwrap();
     tt.render("output", state).unwrap_or_else(|_| template_str.to_string())
 }
 
