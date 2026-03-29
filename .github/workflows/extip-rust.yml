@@ -14,6 +14,11 @@ jobs:
         run: |
           pacman -Sy --noconfirm cargo rust git base-devel
 
+      - name: Create build user
+        run: |
+          useradd -m builder
+          chown -R builder:builder /github/workspace
+
       - name: Get version from Cargo.toml
         id: version
         run: |
@@ -23,7 +28,8 @@ jobs:
       - name: Build package
         run: |
           cd apps/extip-rust
-          makepkg --nodeps --skippgpcheck -D .
+          chown -R builder:builder /github/workspace
+          sudo -u builder makepkg --nodeps --skippgpcheck -D .
 
       - name: Create Release and Upload Assets
         uses: actions/github-script@v7
