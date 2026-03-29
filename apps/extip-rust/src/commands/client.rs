@@ -1,9 +1,8 @@
 use clap::Args;
 use std::path::PathBuf;
 use tinytemplate::TinyTemplate;
-use tokio::io::AsyncReadExt;
-use tokio::net::UnixStream;
 
+use super::serde::receive_state;
 use super::types::{ServiceState, Status};
 
 #[derive(Args)]
@@ -18,22 +17,6 @@ pub struct ClientArgs {
     pub info_format: String,
 }
 
-pub async fn fetch_info(socket_path: &PathBuf) -> Result<ServiceState, String> {
-    let mut stream = UnixStream::connect(socket_path)
-        .await
-        .map_err(|e| format!("{}", e))?;
-
-    let mut buffer = Vec::new();
-    stream.read_to_end(&mut buffer)
-        .await
-        .map_err(|e| format!("{}", e))?;
-
-    let state: ServiceState = serde_json::from_slice(&buffer)
-        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
-
-    Ok(state)
-}
-
 fn render_template(template_str: &str, state: &ServiceState) -> String {
     let mut tt = TinyTemplate::new();
     tt.add_template("output", template_str).unwrap();
@@ -43,7 +26,7 @@ fn render_template(template_str: &str, state: &ServiceState) -> String {
 pub fn run(socket_path: &PathBuf, args: ClientArgs) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     let result = rt.block_on(async {
-        fetch_info(socket_path).await
+        receive_state(socket_path).await
     });
 
     match result {

@@ -1,6 +1,5 @@
 use clap::Args;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 use std::process::Command;
@@ -17,6 +16,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Layer;
 
+use super::serde::serialize_state;
 use super::types::{SimpleIpInfo, Status};
 
 const UPDATING_TIMEOUT: f64 = 5.0;
@@ -50,22 +50,7 @@ pub enum IpInfoClientError {
     Json(#[from] serde_json::Error),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ServiceStateResponse {
-    status: Status,
-    info: Option<SimpleIpInfo>,
-    message: String,
-}
-
-impl From<&ServiceStateInner> for ServiceStateResponse {
-    fn from(s: &ServiceStateInner) -> Self {
-        ServiceStateResponse {
-            status: s.status.clone(),
-            info: s.info.clone(),
-            message: s.message.clone(),
-        }
-    }
-}
+use super::types::ServiceState;
 
 pub struct IpInfoClient {
     client: Client,
@@ -360,8 +345,12 @@ async fn run_server(
             Ok((mut writer, _)) => {
                 debug!("Client connected");
                 let st = state.lock().await;
-                let response: ServiceStateResponse = ServiceStateResponse::from(&*st);
-                let json = serde_json::to_string(&response)?;
+                let response = ServiceState {
+                    status: st.status.clone(),
+                    info: st.info.clone(),
+                    message: st.message.clone(),
+                };
+                let json = serialize_state(&response).map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
                 writer.write_all(json.as_bytes()).await?;
             }
             Err(e) => {
