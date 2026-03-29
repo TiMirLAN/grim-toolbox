@@ -1,0 +1,33 @@
+$schema: "https://moonrepo.dev/schemas/project.json"
+
+language: rust
+layer: application
+project:
+  name: extip-rust
+  description: |
+    External IP service with socket-based client written in Rust.
+stack: systems
+tasks:
+  run.service:
+    command: cargo run -- service
+
+  run.client:
+    command: cargo run -- client
+
+  lint:
+    command: cargo clippy --fix --allow-dirty
+
+  format:
+    command: cargo fmt
+
+  test:
+    command: cargo test
+
+  clean:
+    command: cargo clean
+
+  build:
+    command: cargo build --release
+
+  version:
+    command: cargo --version
