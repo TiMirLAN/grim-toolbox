@@ -1,0 +1,26 @@
+# Maintainer: timirlan <timirlan@example.com>
+pkgname=extip-rust
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="External IP service with socket-based client"
+arch=("x86_64")
+license=("MIT")
+depends=()
+makedepends=("cargo" "rust")
+provides=("extip")
+conflicts=("extip-rust")
+
+prepare() {
+    cd "$startdir"
+    cargo fetch --locked
+}
+
+build() {
+    cd "$startdir"
+    cargo build --release --locked
+}
+
+package() {
+    cd "$startdir"
+    install -Dm755 "target/release/extip-rust" "$pkgdir/usr/bin/extip"
+}
