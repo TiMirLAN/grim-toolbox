@@ -17,10 +17,12 @@ pub struct ClientArgs {
     pub info_format: String,
 }
 
-fn render_template(template_str: &str, state: &ServiceState) -> String {
+fn render_template(template_str: &str, state: &ServiceState) -> Result<String, String> {
     let mut tt = TinyTemplate::new();
-    tt.add_template("output", template_str).unwrap();
-    tt.render("output", state).unwrap_or_else(|_| template_str.to_string())
+    tt.add_template("output", template_str)
+        .map_err(|e| format!("Template error: {}", e))?;
+    tt.render("output", state)
+        .map_err(|e| format!("Template render error: {}", e))
 }
 
 pub fn run(socket_path: &PathBuf, args: ClientArgs) {
@@ -33,8 +35,13 @@ pub fn run(socket_path: &PathBuf, args: ClientArgs) {
         Ok(state) => {
             match state.status {
                 Status::Ready => {
-                    let output = render_template(&args.info_format, &state);
-                    print!("{}", output);
+                    match render_template(&args.info_format, &state) {
+                        Ok(output) => print!("{}", output),
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            std::process::exit(1);
+                        }
+                    }
                 }
                 Status::Updating => {
                     print!("{}", state.message);
