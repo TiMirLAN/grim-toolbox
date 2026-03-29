@@ -22,10 +22,11 @@ Rust implementation of extip.
 - **Build System**: Cargo
 - **Installation (Arch Linux)**:
 
-  With yay:
+   With curl + pacman:
 
   ```bash
-  yay -U --noconfirm "https://github.com/TiMirLAN/grim-toolbox/releases/download/extip-v<VERSION>/extip-rust-<VERSION>-1-x86_64.pkg.tar.zst"
+  curl -L -o /tmp/extip-rust.pkg.tar.zst "https://github.com/TiMirLAN/grim-toolbox/releases/download/extip-v<VERSION>/extip-rust-<VERSION>-1-x86_64.pkg.tar.zst"
+  sudo pacman -U /tmp/extip-rust.pkg.tar.zst
   ```
 
   Replace `<VERSION>` with the latest version from `apps/extip-rust/Cargo.toml`.
