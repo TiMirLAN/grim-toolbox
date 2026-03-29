@@ -2,12 +2,28 @@ post_install() {
     systemd-sysusers --replace=/usr/lib/sysusers.d/extip.conf 2>/dev/null || true
     systemd-tmpfiles --create --remove /usr/lib/tmpfiles.d/extip.conf 2>/dev/null || true
     
+    # Create config directory and template env file for each user
+    for user_home in /home/*; do
+        if [ -d "$user_home" ]; then
+            config_dir="$user_home/.config/extip"
+            mkdir -p "$config_dir"
+            if [ ! -f "$config_dir/env" ]; then
+                cat > "$config_dir/env" << 'EOF'
+# External IP Service configuration
+# Set your token below
+EXTIP_TOKEN=your_token_here
+EOF
+                chown -R "$(basename "$user_home"):$(id -gn "$(basename "$user_home")")" "$config_dir" 2>/dev/null || true
+            fi
+        fi
+    done
+    
     echo "==> To enable and start the extip service, run:"
     echo "    systemctl --user daemon-reload"
     echo "    systemctl --user enable extip.service"
     echo "    systemctl --user start extip.service"
     echo ""
-    echo "==> Make sure to create ~/.config/extip/env with EXTIP_TOKEN set"
+    echo "==> Edit ~/.config/extip/env and set your EXTIP_TOKEN"
 }
 
 post_upgrade() {
