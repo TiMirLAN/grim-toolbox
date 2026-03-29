@@ -26,15 +26,9 @@ fn log_error(log_file: &Option<PathBuf>, message: &str) {
         let _ = std::fs::create_dir_all(parent);
     }
 
-    if let Ok(mut file) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-    {
-        use std::io::Write;
-        let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-        let _ = writeln!(file, "[{}] {}", timestamp, message);
-    }
+    let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+    let log_line = format!("[{}] {}\n", timestamp, message);
+    let _ = std::fs::write(&path, log_line);
 }
 
 #[derive(Args)]
