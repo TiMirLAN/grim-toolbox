@@ -16,8 +16,8 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Layer;
 
-use super::serde::serialize_state;
-use super::types::{SimpleIpInfo, Status};
+use crate::utils::serde::serialize_state;
+use crate::utils::types::{ServiceState, SimpleIpInfo, Status};
 
 const UPDATING_TIMEOUT: f64 = 5.0;
 const IPTABLES_TIMEOUT: f64 = 2.0;
@@ -49,8 +49,6 @@ pub enum IpInfoClientError {
     #[error("JSON parse error: {0}")]
     Json(#[from] serde_json::Error),
 }
-
-use super::types::ServiceState;
 
 pub struct IpInfoClient {
     client: Client,

@@ -5,6 +5,7 @@ use commands::client::ClientArgs;
 use commands::service::ServiceArgs;
 
 mod commands;
+mod utils;
 
 #[derive(Parser)]
 #[command(name = "extip-rust")]

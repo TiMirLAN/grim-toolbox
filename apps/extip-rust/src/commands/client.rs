@@ -2,8 +2,8 @@ use clap::Args;
 use std::path::PathBuf;
 use tinytemplate::TinyTemplate;
 
-use super::serde::receive_state;
-use super::types::{ServiceState, Status};
+use crate::utils::serde::receive_state;
+use crate::utils::types::{ServiceState, Status};
 
 #[derive(Args)]
 pub struct ClientArgs {
