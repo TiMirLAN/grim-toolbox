@@ -1,0 +1,47 @@
+$schema: "https://moonrepo.dev/schemas/project.json"
+
+language: python
+layer: application
+project:
+  name: extip
+  description: |
+    Single CLI for external ip service.
+stack: systems
+tasks:
+  run.service:
+    options:
+      envFile: .env
+    command: uv run extip service
+
+  run.client:
+    options:
+      envFile: .env
+    command: uv run extip client
+
+  lint:
+    command: uv run ruff check --fix
+
+  format:
+    command: uv run pre-commit run -c ./.pre-commit-config.yaml
+
+  test:
+    command: uv run pytest
+
+  clean.dist:
+    command: rm -rf ./dist/*
+
+  build:
+    deps:
+      - clean.dist
+    command: uv build
+
+  version:
+    command: uv version
+
+  publish:
+    options:
+      envFile: .env
+    deps:
+      - target: build
+        optional: true
+    command: uv publish --index devpi-wrkst

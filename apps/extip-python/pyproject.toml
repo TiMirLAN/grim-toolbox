@@ -1,0 +1,39 @@
+[project]
+name = "extip"
+version = "0.9.5"
+description = "CLI service for polybar to show external ip"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "click>=8.3.1",
+    "httpx>=0.28.1",
+    "loguru>=0.7.3",
+    "py-template-engine>=0.2.6",
+    "pydantic>=2.12.4",
+    "pydantic-settings>=2.12.0",
+]
+
+[dependency-groups]
+dev = ["pre-commit>=4.4.0", "ruff>=0.14.5"]
+test = ["pytest>=9.0.1", "pytest-asyncio>=1.3.0"]
+
+[project.scripts]
+extip = "extip.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.8.22,<0.9.0"]
+build-backend = "uv_build"
+
+[[tool.uv.index]]
+name = "devpi-wrkst"
+url = "http://devpi.wrkst.home.arpa/root/dev/"
+publish-url = "http://devpi.wrkst.home.arpa/root/dev/"
+default = true
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["F", "E", "I", "T", "ANN"]
+extend-select = ["E501", "E722", "E741"]
+ignore = ["ANN401", "ANN002", "ANN003"]
