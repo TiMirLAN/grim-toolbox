@@ -1,0 +1,14 @@
+[Unit]
+Description=External IP Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/extip/env
+ExecStart=/usr/bin/extip service --log-level INFO --token "$EXTIP_TOKEN"
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target

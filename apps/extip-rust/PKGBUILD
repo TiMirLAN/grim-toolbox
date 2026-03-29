@@ -9,6 +9,7 @@ depends=()
 makedepends=("cargo" "rust")
 provides=("extip")
 conflicts=("extip-rust")
+install=extip.install
 
 prepare() {
     cd "$startdir"
@@ -23,4 +24,6 @@ build() {
 package() {
     cd "$startdir"
     install -Dm755 "target/release/extip-rust" "$pkgdir/usr/bin/extip"
+    install -Dm644 "extip.service" "$pkgdir/usr/lib/systemd/user/extip.service"
+    install -Dm644 "extip.install" "$pkgdir/usr/share/doc/extip/extip.install"
 }

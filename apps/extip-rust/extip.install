@@ -1,0 +1,33 @@
+post_install() {
+    systemd-sysusers --replace=/usr/lib/sysusers.d/extip.conf 2>/dev/null || true
+    systemd-tmpfiles --create --remove /usr/lib/tmpfiles.d/extip.conf 2>/dev/null || true
+    
+    echo "==> To enable and start the extip service, run:"
+    echo "    systemctl --user daemon-reload"
+    echo "    systemctl --user enable extip.service"
+    echo "    systemctl --user start extip.service"
+    echo ""
+    echo "==> Make sure to create ~/.config/extip/env with EXTIP_TOKEN set"
+}
+
+post_upgrade() {
+    post_install
+}
+
+pre_remove() {
+    # Stop and disable the service for all users
+    for user in /home/*; do
+        if [ -d "$user/.config/systemd/user" ]; then
+            sudo -u "$(basename "$user")" systemctl --user disable extip.service 2>/dev/null || true
+        fi
+    done
+}
+
+post_remove() {
+    # Reload systemd daemon to forget the removed unit
+    for user in /home/*; do
+        if [ -d "$user/.config/systemd/user" ]; then
+            sudo -u "$(basename "$user")" systemctl --user daemon-reload 2>/dev/null || true
+        fi
+    done
+}
