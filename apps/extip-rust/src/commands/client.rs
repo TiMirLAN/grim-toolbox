@@ -1,5 +1,5 @@
 use clap::Args;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tinytemplate::TinyTemplate;
 use tokio::io::AsyncReadExt;
@@ -17,31 +17,31 @@ pub struct ClientArgs {
     pub info_format: String,
 }
 
-#[derive(Debug, Clone, Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
-pub(crate) enum Status {
+pub enum Status {
     Ready,
     Error,
     Updating,
 }
 
-#[derive(Debug, Clone, Deserialize, serde::Serialize)]
-pub(crate) struct SimpleIpInfo {
-    ip: String,
-    asn: String,
-    as_name: String,
-    as_domain: String,
-    country_code: String,
-    country: String,
-    continent_code: String,
-    continent: String,
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SimpleIpInfo {
+    pub ip: String,
+    pub asn: String,
+    pub as_name: String,
+    pub as_domain: String,
+    pub country_code: String,
+    pub country: String,
+    pub continent_code: String,
+    pub continent: String,
 }
 
-#[derive(Debug, Clone, Deserialize, serde::Serialize)]
-pub(crate) struct ServiceState {
-    status: Status,
-    info: Option<SimpleIpInfo>,
-    message: String,
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ServiceState {
+    pub status: Status,
+    pub info: Option<SimpleIpInfo>,
+    pub message: String,
 }
 
 pub async fn fetch_info(socket_path: &PathBuf) -> Result<ServiceState, String> {
