@@ -6,21 +6,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: archlinux:latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Arch Linux
-        uses: jbaruz/archlinux@v1
-        with:
-          arch_version: base
-          update: true
+      - name: Install build dependencies
+        run: |
+          pacman -Sy --noconfirm cargo rust git base-devel
 
       - name: Get version from Cargo.toml
         id: version
         run: |
           VERSION=$(grep '^version = ' apps/extip-rust/Cargo.toml | sed 's/version = "\(.*\)"/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "version=$VERSION"
 
       - name: Build package
         run: |
@@ -33,9 +31,9 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
-            
+
             const pkgDir = 'apps/extip-rust';
-            
+
             // Create release
             const release = await github.rest.repos.createRelease({
               owner: context.repo.owner,
@@ -46,7 +44,7 @@ jobs:
               prerelease: false,
               generate_release_notes: true
             });
-            
+
             // Upload assets from apps/extip-rust directory
             const files = fs.readdirSync(pkgDir);
             for (const file of files) {
