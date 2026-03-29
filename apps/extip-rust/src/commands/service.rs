@@ -1,10 +1,6 @@
 use clap::Args;
-use reqwest::Client;
-use sha2::{Digest, Sha256};
 use std::path::PathBuf;
-use std::process::Command;
 use std::sync::Arc;
-use thiserror::Error;
 use tokio::io::AsyncWriteExt;
 use tokio::net::UnixListener;
 use tokio::signal::ctrl_c;
@@ -16,11 +12,10 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Layer;
 
+use crate::utils::ipinfo::{IpInfoClient, IPTABLES_TIMEOUT, UPDATING_TIMEOUT};
+use crate::utils::route::RouteWatcher;
 use crate::utils::serde::serialize_state;
 use crate::utils::types::{ServiceState, SimpleIpInfo, Status};
-
-const UPDATING_TIMEOUT: f64 = 5.0;
-const IPTABLES_TIMEOUT: f64 = 2.0;
 
 #[derive(Args)]
 pub struct ServiceArgs {
@@ -38,111 +33,6 @@ pub struct ServiceArgs {
 
     #[arg(long, env = "EXTIP_LOG_FILE")]
     pub log_file: Option<PathBuf>,
-}
-
-#[derive(Error, Debug)]
-pub enum IpInfoClientError {
-    #[error("Response status {0}")]
-    Status(u16),
-    #[error("Request error: {0}")]
-    Request(#[from] reqwest::Error),
-    #[error("JSON parse error: {0}")]
-    Json(#[from] serde_json::Error),
-}
-
-pub struct IpInfoClient {
-    client: Client,
-    token: Option<String>,
-}
-
-impl IpInfoClient {
-    pub fn new(token: Option<String>) -> Self {
-        let client = Client::builder()
-            .timeout(std::time::Duration::from_secs_f64(UPDATING_TIMEOUT))
-            .build()
-            .expect("Failed to create HTTP client");
-        Self { client, token }
-    }
-
-    pub async fn fetch_simple_data(&self) -> Result<SimpleIpInfo, IpInfoClientError> {
-        let mut url = "https://api.ipinfo.io/lite/me".to_string();
-        if let Some(ref token) = self.token {
-            url = format!("{}?token={}", url, token);
-        }
-
-        let response = self.client.get(&url).send().await?;
-
-        if response.status() != reqwest::StatusCode::OK {
-            return Err(IpInfoClientError::Status(response.status().as_u16()));
-        }
-
-        let ip_info: SimpleIpInfo = response.json().await?;
-        Ok(ip_info)
-    }
-}
-
-pub struct RouteWatcher {
-    table_cache: String,
-}
-
-impl RouteWatcher {
-    pub fn new() -> Self {
-        let table_cache = Self::build_routes_hash();
-        Self { table_cache }
-    }
-
-    fn build_routes_hash() -> String {
-        let output = Command::new("ip")
-            .arg("route")
-            .arg("show")
-            .output()
-            .expect("Failed to run ip route show")
-            .stdout;
-        let mut hasher = Sha256::new();
-        hasher.update(&output);
-        format!("{:x}", hasher.finalize())
-    }
-
-    pub fn check_changed(&mut self) -> bool {
-        let cache = Self::build_routes_hash();
-        if cache == self.table_cache {
-            return false;
-        }
-        self.table_cache = cache;
-        true
-    }
-}
-
-struct ServiceStateInner {
-    status: Status,
-    info: Option<SimpleIpInfo>,
-    message: String,
-}
-
-impl ServiceStateInner {
-    fn new() -> Self {
-        Self {
-            status: Status::Updating,
-            info: None,
-            message: String::new(),
-        }
-    }
-}
-
-struct Service {
-    ipinfo_client: IpInfoClient,
-    attempt_number: u32,
-    route_watcher: RouteWatcher,
-}
-
-impl Service {
-    fn new(token: Option<String>) -> Self {
-        Self {
-            ipinfo_client: IpInfoClient::new(token),
-            attempt_number: 0,
-            route_watcher: RouteWatcher::new(),
-        }
-    }
 }
 
 fn setup_logging(
@@ -192,6 +82,38 @@ fn setup_logging(
             .with(stdout_layer.with_filter(stdout_filter))
             .with(stderr_layer.with_filter(stderr_filter))
             .init();
+    }
+}
+
+struct ServiceStateInner {
+    status: Status,
+    info: Option<SimpleIpInfo>,
+    message: String,
+}
+
+impl ServiceStateInner {
+    fn new() -> Self {
+        Self {
+            status: Status::Updating,
+            info: None,
+            message: String::new(),
+        }
+    }
+}
+
+struct Service {
+    ipinfo_client: IpInfoClient,
+    attempt_number: u32,
+    route_watcher: RouteWatcher,
+}
+
+impl Service {
+    fn new(token: Option<String>) -> Self {
+        Self {
+            ipinfo_client: IpInfoClient::new(token),
+            attempt_number: 0,
+            route_watcher: RouteWatcher::new(),
+        }
     }
 }
 
