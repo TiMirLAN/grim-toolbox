@@ -1,3 +1,5 @@
+[![Build extip-rust](https://github.com/TiMirLAN/grim-toolbox/actions/workflows/extip-rust.yml/badge.svg)](https://github.com/TiMirLAN/grim-toolbox/actions/workflows/extip-rust.yml)
+
 # grim-toolbox
 
 A collection of CLI tools and utilities for various tasks.
