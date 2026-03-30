@@ -1,11 +1,11 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-use commands::client::ClientArgs;
-use commands::service::ServiceArgs;
-
 mod commands;
 mod utils;
+
+use commands::client::ClientArgs;
+use commands::service::ServiceArgs;
 
 #[derive(Parser)]
 #[command(name = "extip-rust")]
