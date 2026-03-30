@@ -23,6 +23,14 @@ jobs:
           useradd -m builder
           chown -R builder:builder "$GITHUB_WORKSPACE"
 
+      - name: Run cargo check
+        run: |
+          sudo -u builder bash -c 'cd apps/extip-rust && cargo check'
+
+      - name: Run tests
+        run: |
+          sudo -u builder bash -c 'cd apps/extip-rust && cargo test'
+
       - name: Get version from Cargo.toml
         id: version
         run: |
