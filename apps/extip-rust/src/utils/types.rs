@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Status {
     Ready,
@@ -8,7 +8,7 @@ pub enum Status {
     Updating,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct SimpleIpInfo {
     pub ip: String,
     pub asn: String,
@@ -20,7 +20,7 @@ pub struct SimpleIpInfo {
     pub continent: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct ServiceState {
     pub status: Status,
     pub info: Option<SimpleIpInfo>,

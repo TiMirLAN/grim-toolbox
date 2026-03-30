@@ -7,7 +7,7 @@ use crate::utils::types::{ServiceState, Status};
 
 const DEFAULT_LOG_FILE: &str = "~/.local/share/extip/client.log";
 
-fn log_error(log_file: &Option<PathBuf>, message: &str) {
+pub fn log_error(log_file: &Option<PathBuf>, message: &str) {
     let path = match log_file {
         Some(p) if p.as_os_str().is_empty() => return,
         Some(p) => p,
@@ -51,7 +51,7 @@ pub struct ClientArgs {
     pub log_file: Option<PathBuf>,
 }
 
-fn render_template(template_str: &str, state: &ServiceState) -> Result<String, String> {
+pub fn render_template(template_str: &str, state: &ServiceState) -> Result<String, String> {
     let mut tt = TinyTemplate::new();
     tt.add_template("output", template_str)
         .map_err(|e| format!("Template error: {}", e))?;
