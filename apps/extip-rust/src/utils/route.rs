@@ -37,6 +37,7 @@ impl RouteWatcher<SystemRouteProvider> {
 }
 
 impl<R: RouteProvider> RouteWatcher<R> {
+    #[allow(dead_code)]
     pub fn with_provider(provider: R) -> Self {
         let table_cache = provider.get_routes_hash();
         Self {
