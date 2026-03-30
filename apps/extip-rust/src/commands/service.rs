@@ -13,7 +13,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Layer;
 
 use crate::utils::ipinfo::{IpInfoClient, IPTABLES_TIMEOUT, UPDATING_TIMEOUT};
-use crate::utils::route::RouteWatcher;
+use crate::utils::route::{RouteWatcher, SystemRouteProvider};
 use crate::utils::serde::serialize_state;
 use crate::utils::types::{ServiceState, SimpleIpInfo, Status};
 
@@ -104,7 +104,7 @@ impl ServiceStateInner {
 struct Service {
     ipinfo_client: IpInfoClient,
     attempt_number: u32,
-    route_watcher: RouteWatcher,
+    route_watcher: RouteWatcher<SystemRouteProvider>,
 }
 
 impl Service {

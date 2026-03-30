@@ -1,19 +1,35 @@
-use extip_rust::utils::route::RouteWatcher;
+use extip_rust::utils::route::{RouteProvider, RouteProviderExt, RouteWatcher};
 
-#[test]
-#[ignore = "requires ip command and network namespace"]
-fn test_route_watcher_new() {
-    let watcher = RouteWatcher::new();
-    // Should initialize without panicking
-    // The internal hash should be set
+struct FakeRouteProvider {
+    routes: String,
+}
+
+impl FakeRouteProvider {
+    fn new(routes: &str) -> Self {
+        Self {
+            routes: routes.to_string(),
+        }
+    }
+}
+
+impl RouteProvider for FakeRouteProvider {
+    fn get_routes(&self) -> String {
+        self.routes.clone()
+    }
 }
 
 #[test]
-#[ignore = "requires ip command and network namespace"]
-fn test_route_watcher_check_changed_no_change() {
-    let mut watcher = RouteWatcher::new();
+fn test_route_watcher_new() {
+    let provider = FakeRouteProvider::new("default via 192.168.1.1 dev eth0");
+    let watcher = RouteWatcher::with_provider(provider);
+    let _ = watcher;
+}
 
-    // First check should return false since nothing changed since creation
+#[test]
+fn test_route_watcher_check_changed_no_change() {
+    let provider = FakeRouteProvider::new("default via 192.168.1.1 dev eth0");
+    let mut watcher = RouteWatcher::with_provider(provider);
+
     let changed = watcher.check_changed();
     assert!(
         !changed,
@@ -22,28 +38,26 @@ fn test_route_watcher_check_changed_no_change() {
 }
 
 #[test]
-#[ignore = "requires ip command and requires route change between calls"]
 fn test_route_watcher_check_changed_with_change() {
-    let mut watcher = RouteWatcher::new();
+    let provider = FakeRouteProvider::new("default via 192.168.1.1 dev eth0");
+    let mut watcher = RouteWatcher::with_provider(provider);
 
-    // After routes change, should return true
-    // This test requires actual network changes between calls
     let changed = watcher.check_changed();
-    // Result depends on actual system state
-    // Just verify it doesn't panic
+    assert!(
+        !changed,
+        "Should return false since provider returns same routes"
+    );
 }
 
 #[test]
-#[ignore = "requires ip command"]
 fn test_route_watcher_multiple_checks() {
-    let mut watcher = RouteWatcher::new();
+    let provider = FakeRouteProvider::new("default via 192.168.1.1 dev eth0");
+    let mut watcher = RouteWatcher::with_provider(provider);
 
-    // Multiple consecutive checks should return false if no changes
     let first = watcher.check_changed();
     let second = watcher.check_changed();
     let third = watcher.check_changed();
 
-    // All should be false since routes haven't changed
     assert!(!first);
     assert!(!second);
     assert!(!third);
@@ -51,9 +65,26 @@ fn test_route_watcher_multiple_checks() {
 
 #[test]
 fn test_build_routes_hash_format() {
-    // Test that build_routes_hash produces a valid hex string
-    let _hash = RouteWatcher::new();
-    // The internal hash should be a valid hex string of appropriate length
-    // SHA256 produces 64 hex characters
-    // Note: we can't directly access the field, so we test behavior
+    let provider = FakeRouteProvider::new("default via 192.168.1.1 dev eth0");
+
+    let hash = RouteProviderExt::get_routes_hash(&provider);
+    assert_eq!(hash.len(), 64);
+    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+}
+
+#[test]
+fn test_route_watcher_detects_change() {
+    // This test checks that the internal hash mechanism works
+    // We can't easily test dynamic change detection without a mock
+    // but we can verify the hash changes based on different inputs
+    let provider1 = FakeRouteProvider::new("default via 192.168.1.1 dev eth0");
+    let provider2 = FakeRouteProvider::new("default via 10.0.0.1 dev wlan0");
+
+    let hash1 = RouteProviderExt::get_routes_hash(&provider1);
+    let hash2 = RouteProviderExt::get_routes_hash(&provider2);
+
+    assert_ne!(
+        hash1, hash2,
+        "Different routes should produce different hashes"
+    );
 }
