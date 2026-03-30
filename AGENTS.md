@@ -4,19 +4,37 @@ This document provides guidelines for agents working in this repository.
 
 ## Project Overview
 
-- **Build System**: Moon (v2.0.4)
-- **Package Manager**: uv (v0.10.9)
-- **Python Version**: >=3.14
-- **Workspace**: Multi-project in `apps/*`
+- **Build System**: Moon (v2.0.4+)
+- **Package Manager**: uv (v0.10.9+)
+- **Python Version**: >=3.13 (extip-python), >=3.14 (modelloader)
+- **Rust**: Required for extip-rust project
+- **Workspace**: Multi-project in `apps/*` and `scripts/*`
 - **Default Branch**: master
+- **VCS Provider**: GitHub
+
+## Projects
+
+### apps/extip-python
+- CLI service for polybar to show external IP address
+- Language: Python 3.13+
+- Build: Moon + uv
+
+### apps/extip-rust
+- Rust implementation of extip
+- Language: Rust
+- Build: Cargo
+
+### scripts/modelloader
+- CLI tool for managing and loading models from LLM providers
+- Language: Python 3.14+
+- Build: Moon + uv
 
 ## Build Commands
 
-### Using Moon
+### Moon Workspace Commands
 
 ```bash
-# Run a task defined in moon.yml
-moon run <task>
+# Run a task for a specific project
 moon run <project>:<task>
 
 # Build all projects
@@ -27,11 +45,61 @@ moon test
 
 # Clean build artifacts
 moon clean
+
+# List all projects
+moon list
+
+# Show project graph
+moon graph
 ```
 
-### Using uv Directly
+### Moon Project Tasks
+
+#### extip-python Tasks
+
+| Task | Command | Description |
+|------|---------|-------------|
+| `run.service` | `moon run extip-python:run.service` | Run the external IP service (requires `.env`) |
+| `run.client` | `moon run extip-python:run.client` | Run the client CLI (requires `.env`) |
+| `lint` | `moon run extip-python:lint` | Run ruff linter with auto-fix |
+| `format` | `moon run extip-python:format` | Run pre-commit hooks |
+| `test` | `moon run extip-python:test` | Run pytest test suite |
+| `clean.dist` | `moon run extip-python:clean.dist` | Remove `dist/` directory contents |
+| `build` | `moon run extip-python:build` | Build the package (depends on `clean.dist`) |
+| `version` | `moon run extip-python:version` | Show current version |
+| `publish` | `moon run extip-python:publish` | Publish to devpi-wrkst index (requires `.env`, depends on `build`) |
+
+**Environment Files:**
+- `run.service`, `run.client`, `publish` tasks use `.env` file
+- Copy `template.env` to `.env` and configure as needed
+
+#### extip-rust Tasks
+
+| Task | Command | Description |
+|------|---------|-------------|
+| `run.service` | `moon run extip-rust:run.service` | Run the external IP service |
+| `run.client` | `moon run extip-rust:run.client` | Run the client CLI |
+| `lint` | `moon run extip-rust:lint` | Run clippy with auto-fix |
+| `format` | `moon run extip-rust:format` | Format code with rustfmt |
+| `test` | `moon run extip-rust:test` | Run cargo test suite |
+| `clean` | `moon run extip-rust:clean` | Clean cargo build artifacts |
+| `build` | `moon run extip-rust:build` | Build release binary |
+| `pkgbuild` | `moon run extip-rust:pkgbuild` | Build Arch Linux package (PKGBUILD) |
+| `version` | `moon run extip-rust:version` | Show cargo version |
+
+#### modelloader Tasks
+
+| Task | Command | Description |
+|------|---------|-------------|
+| `run` | `moon run modelloader:run` | Run the modelloader CLI |
+| `test` | `moon run modelloader:test` | Run pytest with required dependencies |
+
+### Using uv Directly (Python projects)
 
 ```bash
+# Navigate to project directory
+cd apps/extip-python
+
 # Install dependencies
 uv sync
 
@@ -44,35 +112,71 @@ uv run <command>
 
 # Lock dependencies
 uv lock
+
+# Build the project
+uv build
+
+# Publish to index
+uv publish --index <index-name>
+```
+
+### Using Cargo (Rust projects)
+
+```bash
+# Navigate to project directory
+cd apps/extip-rust
+
+# Build the project
+cargo build --release
+
+# Run the project
+cargo run -- [args]
+
+# Run tests
+cargo test
+
+# Format code
+cargo fmt
+
+# Lint code
+cargo clippy --fix --allow-dirty
+
+# Clean build artifacts
+cargo clean
 ```
 
 ### Running Single Tests
 
 ```bash
-# With pytest (if configured)
-pytest tests/<test_file>.py::TestClass::test_method
-pytest tests/<test_file>.py -k "test_name"
+# For extip-python
+cd apps/extip-python
+pytest tests/test_utils.py::TestClass::test_method
+pytest tests/test_utils.py -k "test_name"
+uv run pytest tests/test_utils.py::test_function
 
-# With uv run
-uv run pytest tests/test_example.py::test_function
-
-# With Python directly
-python -m pytest tests/test_example.py::test_function
+# For modelloader
+cd scripts/modelloader
+uv run --with pytest --with click --with requests pytest tests/ -v
 ```
 
 ### Linting & Type Checking
 
 ```bash
-# Run ruff linter
+# For extip-python
+cd apps/extip-python
+uv run ruff check --fix
+uv run pre-commit run -c ./.pre-commit-config.yaml
+
+# For modelloader
+cd scripts/modelloader
 ruff check .
 ruff check --fix .
-
-# Run ruff formatter
 ruff format .
 
-# Run mypy type checker
-mypy <module>
-mypy --strict <module>
+# For extip-rust
+cd apps/extip-rust
+cargo clippy --fix --allow-dirty
+cargo fmt
 ```
 
 ### Running All Checks
@@ -81,8 +185,17 @@ mypy --strict <module>
 # Moon test suite
 moon test
 
-# Or manually
-ruff check . && ruff format --check . && mypy .
+# For extip-python
+cd apps/extip-python
+uv run pytest
+
+# For modelloader
+cd scripts/modelloader
+uv run --with pytest --with click --with requests pytest tests/ -v
+
+# For extip-rust
+cd apps/extip-rust
+cargo test
 ```
 
 ## Code Style Guidelines
@@ -216,28 +329,43 @@ def test_fetch_models_returns_list_on_success():
 ### File Organization
 
 ```
-project/
-├── apps/              # Application code
-│   └── <app_name>/
-│       ├── app.py
-│       └── config.py
-├── scripts/           # Standalone scripts
-│   └── modelloader/
-│       └── modelloader.py
-├── tests/             # Test files
-│   └── test_example.py
-├── pyproject.toml     # Project configuration
-├── moon.yml           # Moon build config
-└── AGENTS.md          # This file
+grim-toolbox/
+├── apps/                    # Application projects
+│   ├── extip-python/        # Python CLI for external IP service
+│   │   ├── src/extip/       # Source code
+│   │   ├── tests/           # Test files
+│   │   ├── pyproject.toml   # Project configuration
+│   │   ├── moon.yml         # Moon build config
+│   │   └── README.md
+│   └── extip-rust/          # Rust implementation
+│       ├── src/             # Rust source code
+│       ├── Cargo.toml       # Rust project config
+│       ├── moon.yml         # Moon build config
+│       └── PKGBUILD         # Arch Linux package build
+├── scripts/                 # Standalone scripts
+│   └── modelloader/         # Model loader CLI tool
+│       ├── modelloader.py   # Main script
+│       ├── tests/           # Test files
+│       ├── moon.yaml        # Moon build config
+│       └── README.md
+├── .github/
+│   └── workflows/           # GitHub Actions workflows
+├── .moon/
+│   └── workspace.yml        # Moon workspace configuration
+├── AGENTS.md                # This file
+└── README.md                # Project overview
 ```
 
 ### Configuration Files
 
 When creating new configuration files:
 
-- `pyproject.toml`: Define project metadata, dependencies, and tools
-- `moon.yml`: Per-project build configuration
-- Use ruff for both linting and formatting
+- `pyproject.toml`: Define project metadata, dependencies, and tools (Python projects)
+- `Cargo.toml`: Define Rust project metadata and dependencies (Rust projects)
+- `moon.yml` / `moon.yaml`: Per-project build configuration
+- `.pre-commit-config.yaml`: Pre-commit hooks configuration (extip-python)
+- Use ruff for both linting and formatting (Python projects)
+- Use clippy and rustfmt for Rust projects
 
 ### Git Conventions
 
