@@ -27,7 +27,8 @@
     "vue",
     "react",
     "tsx",
-    "jsx"
+    "jsx",
+    "rs"
   ],
   "cSpell.ignorePaths": [
     "**/node_modules/**",
