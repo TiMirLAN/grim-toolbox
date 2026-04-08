@@ -78,6 +78,7 @@ uv run <command>
 - Rust (for extip-rust)
 - [Moon](https://moonrepo.dev) v2.0.4+
 - [uv](https://github.com/astral-sh/uv) v0.10.9+
+- [GitHub CLI](https://github.com/cli/cli) (gh) v2.89.0+
 
 ## Development
 

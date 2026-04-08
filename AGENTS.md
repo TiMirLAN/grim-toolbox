@@ -6,6 +6,7 @@ This document provides guidelines for agents working in this repository.
 
 - **Build System**: Moon (v2.0.4+)
 - **Package Manager**: uv (v0.10.9+)
+- **GitHub CLI**: gh (v2.89.0+)
 - **Python Version**: >=3.13 (extip-python), >=3.14 (modelloader)
 - **Rust**: Required for extip-rust project
 - **Workspace**: Multi-project in `apps/*` and `scripts/*`
@@ -197,6 +198,77 @@ uv run --with pytest --with click --with requests pytest tests/ -v
 cd apps/extip-rust
 cargo test
 ```
+
+## Using GitHub CLI (gh)
+
+GitHub CLI is used for GitHub-related operations including issues, pull requests, releases, and workflows.
+
+```bash
+# Authenticate with GitHub
+gh auth login
+
+# Check authenticated status
+gh auth status
+
+# Create a pull request
+gh pr create --title "Title" --body "Description"
+
+# List pull requests
+gh pr list
+
+# View pull request
+gh pr view <pr-number>
+
+# Create a release
+gh release create <tag> --title "Release Title" --notes "Release notes"
+
+# List releases
+gh release list
+```
+
+### Running GitHub Actions Workflows
+
+```bash
+# List available workflows
+gh workflow list
+
+# Run a workflow manually
+gh workflow run <workflow-name>
+
+# Run workflow with inputs
+gh workflow run <workflow-name> -f field=value -f another=value
+
+# Run workflow from specific branch/tag
+gh workflow run <workflow-name> --ref <branch-or-tag>
+
+# View recent workflow runs
+gh run list
+
+# View runs for a specific workflow
+gh run list --workflow=<workflow-name>
+
+# View run status and logs
+gh run view <run-id>
+
+# View run logs (full log output)
+gh run view <run-id> --log
+
+# Download workflow artifacts
+gh run download <run-id>
+
+# Rerun a failed workflow
+gh run rerun <run-id>
+
+# Cancel a running workflow
+gh run cancel <run-id>
+
+# Wait for workflow to complete (exit with code)
+gh run view <run-id> --exit-status && echo "Success" || echo "Failed"
+```
+
+**Example workflows in this repo:**
+- `extip-rust.yml` - Build and test extip-rust
+- `modelloader.yml` - Test modelloader
 
 ## Code Style Guidelines
 
