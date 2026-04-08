@@ -47,7 +47,7 @@ tasks:
       ../../scripts/generate-changelog.sh
       git add -A
       git commit -m "~ version"
-      git tag -f "extip-v$(cargo run --release --quiet -- --version | cut -d' ' -f2)"
-      git push origin tag "extip-v$(cargo run --release --quiet -- --version | cut -d' ' -f2)" --force
+      git push
+      gh workflow run 253513997
     dependsOn:
       - changelog
