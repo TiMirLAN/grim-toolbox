@@ -1,5 +1,8 @@
 ## 🚀 Features
-- Add new build tools
+- Add changelog
+- Add build tools
+## ♻️ Changes
+- Bump extip-rust to v2.0.5
 ## 🐛 Bug Fixes
-- Resolve threading concurrency issue
-- Fix routing update error handling
+- Fix threading problem
+- Fix routing update error

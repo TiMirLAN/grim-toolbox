@@ -37,9 +37,12 @@ tasks:
 
   changelog:
     script: "../../scripts/generate-changelog.sh"
+    inputs:
+      - "~version"
 
   release:
     command:
+      - cargo check --release
       - cargo build --release
       - "../../scripts/generate-changelog.sh"
       - git add -A
