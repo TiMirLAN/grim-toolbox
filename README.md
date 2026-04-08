@@ -20,6 +20,7 @@ Rust implementation of extip.
 
 - **Language**: Rust
 - **Build System**: Cargo
+- **Documentation**: [apps/extip-rust/README.md](apps/extip-rust/README.md)
 - **Installation (Arch Linux)**:
 
    With curl + pacman:
