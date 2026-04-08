@@ -16,6 +16,7 @@ fn test_serialize_state_ready_with_info() {
             continent: "North America".to_string(),
         }),
         message: "OK".to_string(),
+        error_type: None,
     };
 
     let result = serialize_state(&state);
@@ -34,6 +35,7 @@ fn test_serialize_state_error_without_info() {
         status: Status::Error,
         info: None,
         message: "Connection refused".to_string(),
+        error_type: Some("No Internet".to_string()),
     };
 
     let result = serialize_state(&state);
@@ -51,6 +53,7 @@ fn test_serialize_state_updating() {
         status: Status::Updating,
         info: None,
         message: "Updating... Attempt #1".to_string(),
+        error_type: None,
     };
 
     let result = serialize_state(&state);
@@ -76,6 +79,7 @@ fn test_serialize_state_valid_json() {
             continent: "North America".to_string(),
         }),
         message: "Fetched".to_string(),
+        error_type: None,
     };
 
     let json = serialize_state(&state).unwrap();
@@ -91,6 +95,7 @@ fn test_serialize_state_empty_message() {
         status: Status::Ready,
         info: None,
         message: String::new(),
+        error_type: None,
     };
 
     let result = serialize_state(&state);
@@ -103,6 +108,7 @@ fn test_serialize_state_unicode_message() {
         status: Status::Error,
         info: None,
         message: "Ошибка: невозможно подключиться".to_string(),
+        error_type: Some("Network Error".to_string()),
     };
 
     let result = serialize_state(&state);

@@ -16,6 +16,26 @@ pub enum IpInfoClientError {
     Json(#[from] serde_json::Error),
 }
 
+impl IpInfoClientError {
+    pub fn error_type(&self) -> &'static str {
+        match self {
+            IpInfoClientError::Status(_) => "Response Error",
+            IpInfoClientError::Request(e) => {
+                if e.is_timeout() {
+                    "Timeout"
+                } else if e.is_connect() {
+                    "No Internet"
+                } else if e.is_request() {
+                    "Request Error"
+                } else {
+                    "Network Error"
+                }
+            }
+            IpInfoClientError::Json(_) => "Parse Error",
+        }
+    }
+}
+
 pub struct IpInfoClient {
     client: Client,
     token: Option<String>,

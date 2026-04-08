@@ -34,13 +34,22 @@ pub fn log_error(log_file: &Option<PathBuf>, message: &str) {
 #[derive(Args)]
 pub struct ClientArgs {
     #[arg(
-        short,
+        short = 'i',
         long,
         default_value = "{info.asn} {info.ip}",
         env = "EXTIP_INFO_FORMAT",
         help = "Specify how you want to display the IP info using placeholders like: {info.<field>}. Available fields: ip, asn, as_name, as_domain, country_code, country, continent_code, continent"
     )]
     pub info_format: String,
+
+    #[arg(
+        short = 'e',
+        long,
+        default_value = "{error_type}",
+        env = "EXTIP_ERROR_FORMAT",
+        help = "Format for error output. Use {error_type} for error type, {message} for full error message."
+    )]
+    pub error_format: String,
 
     #[arg(
         long,
@@ -82,9 +91,14 @@ pub fn run(socket_path: &PathBuf, args: ClientArgs) {
                     print!("{}", state.message);
                 }
                 Status::Error => {
-                    let err_msg = format!("Service error: {}", state.message);
-                    log_error(&args.log_file, &err_msg);
-                    print!("Error: {}", state.message);
+                    match render_template(&args.error_format, &state) {
+                        Ok(output) => print!("{}", output),
+                        Err(e) => {
+                            log_error(&args.log_file, &e);
+                            eprintln!("{}", e);
+                            std::process::exit(1);
+                        }
+                    }
                 }
             }
         }

@@ -89,6 +89,7 @@ struct ServiceStateInner {
     status: Status,
     info: Option<SimpleIpInfo>,
     message: String,
+    error_type: Option<String>,
 }
 
 impl ServiceStateInner {
@@ -97,6 +98,7 @@ impl ServiceStateInner {
             status: Status::Updating,
             info: None,
             message: String::new(),
+            error_type: None,
         }
     }
 }
@@ -181,6 +183,8 @@ async fn run_service(socket_path: &PathBuf, token: Option<String>) {
                             let mut st = state.lock().await;
                             st.status = Status::Error;
                             st.message = err_msg;
+                            st.info = None;
+                            st.error_type = Some(e.error_type().to_string());
                         }
                     }
                 }
@@ -230,6 +234,8 @@ async fn run_service(socket_path: &PathBuf, token: Option<String>) {
                                 let mut st = state.lock().await;
                                 st.status = Status::Error;
                                 st.message = err_msg;
+                                st.info = None;
+                                st.error_type = Some(e.error_type().to_string());
                             }
                         }
                     }
@@ -267,8 +273,9 @@ async fn run_server(
                 let st = state.lock().await;
                 let response = ServiceState {
                     status: st.status.clone(),
-                    info: st.info.clone(),
+                    info: if st.status == Status::Error { None } else { st.info.clone() },
                     message: st.message.clone(),
+                    error_type: st.error_type.clone(),
                 };
                 let json = serialize_state(&response).map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
                 writer.write_all(json.as_bytes()).await?;

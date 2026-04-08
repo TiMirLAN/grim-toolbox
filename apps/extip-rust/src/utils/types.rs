@@ -25,4 +25,5 @@ pub struct ServiceState {
     pub status: Status,
     pub info: Option<SimpleIpInfo>,
     pub message: String,
+    pub error_type: Option<String>,
 }

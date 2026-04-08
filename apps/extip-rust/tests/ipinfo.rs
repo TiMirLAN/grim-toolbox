@@ -1,6 +1,6 @@
-use extip_rust::utils::ipinfo::IpInfoClient;
+use extip_rust::utils::ipinfo::{IpInfoClient, IpInfoClientError};
 use mockito::{Server, ServerGuard};
-use serde_json::json;
+use reqwest::Client;
 
 fn setup_mock_server() -> ServerGuard {
     let server = Server::new();
@@ -120,10 +120,27 @@ async fn test_fetch_simple_data_error_status() {
 
 #[test]
 fn test_constants_defined() {
-    // Verify constants are defined
     let timeout = extip_rust::utils::UPDATING_TIMEOUT;
     assert_eq!(timeout, 5.0);
     
     let ipt_timeout = extip_rust::utils::IPTABLES_TIMEOUT;
     assert_eq!(ipt_timeout, 2.0);
+}
+
+#[test]
+fn test_error_type_status() {
+    let err = IpInfoClientError::Status(429);
+    assert_eq!(err.error_type(), "Response Error");
+}
+
+#[test]
+fn test_error_type_status_500() {
+    let err = IpInfoClientError::Status(500);
+    assert_eq!(err.error_type(), "Response Error");
+}
+
+#[test]
+fn test_error_type_status_401() {
+    let err = IpInfoClientError::Status(401);
+    assert_eq!(err.error_type(), "Response Error");
 }

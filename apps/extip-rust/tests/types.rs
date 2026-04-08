@@ -93,6 +93,7 @@ fn test_service_state_with_info() {
         status: Status::Ready,
         info: Some(info),
         message: "Fetched 1.2.3.4".to_string(),
+        error_type: None,
     };
 
     let json = serde_json::to_string(&state).unwrap();
@@ -107,6 +108,7 @@ fn test_service_state_without_info() {
         status: Status::Error,
         info: None,
         message: "Connection failed".to_string(),
+        error_type: Some("No Internet".to_string()),
     };
 
     let json = serde_json::to_string(&state).unwrap();
@@ -130,6 +132,7 @@ fn test_service_state_roundtrip() {
             continent: "Europe".to_string(),
         }),
         message: "OK".to_string(),
+        error_type: None,
     };
 
     let json = serde_json::to_string(&original).unwrap();
