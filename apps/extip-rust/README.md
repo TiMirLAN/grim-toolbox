@@ -12,15 +12,9 @@ CLI service for polybar to show external IP address. Rust implementation with Un
 
 ## Installation
 
-### Arch Linux (from AUR)
+### Arch Linux
 
-Using your favorite AUR helper:
-
-```bash
-paru -S extip-rust
-```
-
-Or manually from GitHub releases:
+Manually from GitHub releases:
 
 ```bash
 curl -L -o /tmp/extip-rust.pkg.tar.zst "https://github.com/TiMirLAN/grim-toolbox/releases/download/extip-v2.0.3/extip-rust-2.0.3-1-x86_64.pkg.tar.zst"
