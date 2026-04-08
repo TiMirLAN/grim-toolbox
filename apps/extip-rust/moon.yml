@@ -43,11 +43,8 @@ tasks:
   release:
     command:
       - cargo check --release
-      - cargo build --release
       - "../../scripts/generate-changelog.sh"
       - git add -A
       - git commit -m "~ version"
-      - git tag -f "extip-v$(cargo run --release --quiet -- --version | cut -d' ' -f2)"
-      - git push origin tag "extip-v$(cargo run --release --quiet -- --version | cut -d' ' -f2)" --force
     dependsOn:
-      - build
+      - changelog
