@@ -87,6 +87,8 @@ moon graph
 | `build` | `moon run extip-rust:build` | Build release binary |
 | `pkgbuild` | `moon run extip-rust:pkgbuild` | Build Arch Linux package (PKGBUILD) |
 | `version` | `moon run extip-rust:version` | Show cargo version |
+| `changelog` | `moon run extip-rust:changelog` | Generate changelog from last tag to HEAD |
+| `release` | `moon run extip-rust:release` | Build, create changelog, commit, tag and push |
 
 #### modelloader Tasks
 

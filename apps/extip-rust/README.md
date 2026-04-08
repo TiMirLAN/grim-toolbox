@@ -153,6 +153,18 @@ cargo fmt
 cargo clippy --fix --allow-dirty
 ```
 
+### Release (using Moon)
+
+```bash
+# Generate changelog
+moon run extip-rust:changelog
+
+# Full release (check, build, changelog, commit, tag, push)
+moon run extip-rust:release
+```
+
+The changelog is generated from commits since the last release tag using opencode for AI-powered analysis.
+
 ## License
 
 MIT

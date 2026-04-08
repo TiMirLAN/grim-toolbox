@@ -106,6 +106,17 @@ moon test
 ruff check . && ruff format --check . && mypy .
 ```
 
+### Changelog Generation
+
+For extip-rust releases, changelog is generated using opencode to analyze commits:
+
+```bash
+# Generate changelog from last tag to HEAD
+moon run extip-rust:changelog
+```
+
+The script uses GitHub opencode to analyze commits and produce human-readable release notes with categories: Features (+), Changes (~), Bug Fixes (!).
+
 ## License
 
 See individual project licenses for details.
