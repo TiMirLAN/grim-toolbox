@@ -1,11 +1,5 @@
-use extip_rust::utils::ipinfo::{IpInfoClient, IpInfoClientError};
-use mockito::{Server, ServerGuard};
-use reqwest::Client;
-
-fn setup_mock_server() -> ServerGuard {
-    let server = Server::new();
-    server
-}
+use extip_rust::utils::ipinfo::{IpInfoClient, IpInfoClientError, IPTABLES_TIMEOUT, UPDATING_TIMEOUT};
+use mockito::Server;
 
 #[test]
 fn test_client_creation_without_token() {
@@ -120,10 +114,10 @@ async fn test_fetch_simple_data_error_status() {
 
 #[test]
 fn test_constants_defined() {
-    let timeout = extip_rust::utils::UPDATING_TIMEOUT;
+    let timeout = UPDATING_TIMEOUT;
     assert_eq!(timeout, 15.0);
     
-    let ipt_timeout = extip_rust::utils::IPTABLES_TIMEOUT;
+    let ipt_timeout = IPTABLES_TIMEOUT;
     assert_eq!(ipt_timeout, 2.0);
 }
 

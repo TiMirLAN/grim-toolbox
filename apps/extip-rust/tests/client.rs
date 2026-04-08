@@ -153,8 +153,6 @@ fn test_render_template_as_domain() {
     assert_eq!(result.unwrap(), "example.net");
 }
 
-use tempfile::TempDir;
-
 #[test]
 fn test_client_args_default_info_format() {
     let args = extip_rust::commands::client::ClientArgs {
