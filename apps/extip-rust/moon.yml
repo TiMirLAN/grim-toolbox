@@ -9,10 +9,10 @@ project:
 stack: systems
 tasks:
   run.service:
-    command: cargo run -- service
+    command: cargo run --features dev-version -- service
 
   run.client:
-    command: cargo run -- client
+    command: cargo run --features dev-version -- client
 
   lint:
     command: cargo clippy --fix --allow-dirty
@@ -33,4 +33,4 @@ tasks:
     command: "makepkg --nodeps --skippgpcheck -D ."
 
   version:
-    command: cargo --version
+    command: cargo run --release --quiet -- --version

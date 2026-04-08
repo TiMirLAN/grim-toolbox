@@ -7,15 +7,17 @@ mod utils;
 use commands::client::ClientArgs;
 use commands::service::ServiceArgs;
 
+include!(concat!(env!("OUT_DIR"), "/version.rs"));
+
 #[derive(Parser)]
 #[command(name = "extip-rust")]
-#[command(about = "External IP service with socket-based client")]
+#[command(version = VERSION)]
 struct Cli {
     #[arg(short, long, default_value = "/tmp/extip.sock", env = "EXTIP_SOCKET")]
     socket_path: PathBuf,
 
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -29,7 +31,12 @@ fn main() {
 
     let cli = Cli::parse();
 
-    match cli.command {
+    if cli.command.is_none() {
+        println!("extip-rust {}", VERSION);
+        return;
+    }
+
+    match cli.command.unwrap() {
         Commands::Service(args) => {
             commands::service::run(&cli.socket_path, args);
         }

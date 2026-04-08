@@ -3,6 +3,9 @@ name = "extip-rust"
 version = "2.0.4"
 edition = "2024"
 
+[build-dependencies]
+sha2 = "0.10"
+
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }
 dotenv = "0.15"
@@ -18,6 +21,10 @@ sha2 = "0.10"
 thiserror = "2"
 chrono = "0.4"
 dirs = "5"
+
+[features]
+default = []
+dev-version = []
 
 [dev-dependencies]
 mockito = "1"
