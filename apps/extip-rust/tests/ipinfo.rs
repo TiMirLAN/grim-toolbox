@@ -121,7 +121,7 @@ async fn test_fetch_simple_data_error_status() {
 #[test]
 fn test_constants_defined() {
     let timeout = extip_rust::utils::UPDATING_TIMEOUT;
-    assert_eq!(timeout, 5.0);
+    assert_eq!(timeout, 15.0);
     
     let ipt_timeout = extip_rust::utils::IPTABLES_TIMEOUT;
     assert_eq!(ipt_timeout, 2.0);

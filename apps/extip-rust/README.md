@@ -17,7 +17,7 @@ CLI service for polybar to show external IP address. Rust implementation with Un
 Manually from GitHub releases:
 
 ```bash
-curl -L -o /tmp/extip-rust.pkg.tar.zst "https://github.com/TiMirLAN/grim-toolbox/releases/download/extip-v2.0.3/extip-rust-2.0.3-1-x86_64.pkg.tar.zst"
+curl -L -o /tmp/extip-rust.pkg.tar.zst "https://github.com/TiMirLAN/grim-toolbox/releases/download/extip-v2.0.4/extip-rust-2.0.4-1-x86_64.pkg.tar.zst"
 sudo pacman -U /tmp/extip-rust.pkg.tar.zst
 ```
 

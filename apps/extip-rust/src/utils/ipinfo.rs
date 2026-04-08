@@ -3,7 +3,7 @@ use thiserror::Error;
 
 use crate::utils::types::SimpleIpInfo;
 
-pub const UPDATING_TIMEOUT: f64 = 5.0;
+pub const UPDATING_TIMEOUT: f64 = 15.0;
 pub const IPTABLES_TIMEOUT: f64 = 2.0;
 
 #[derive(Error, Debug)]
@@ -37,26 +37,30 @@ impl IpInfoClientError {
 }
 
 pub struct IpInfoClient {
-    client: Client,
     token: Option<String>,
 }
 
 impl IpInfoClient {
     pub fn new(token: Option<String>) -> Self {
-        let client = Client::builder()
+        Self { token }
+    }
+
+    fn create_client(&self) -> Client {
+        Client::builder()
             .timeout(std::time::Duration::from_secs_f64(UPDATING_TIMEOUT))
             .build()
-            .expect("Failed to create HTTP client");
-        Self { client, token }
+            .expect("Failed to create HTTP client")
     }
 
     pub async fn fetch_simple_data(&self) -> Result<SimpleIpInfo, IpInfoClientError> {
+        let client = self.create_client();
+        
         let mut url = "https://api.ipinfo.io/lite/me".to_string();
         if let Some(ref token) = self.token {
             url = format!("{}?token={}", url, token);
         }
 
-        let response = self.client.get(&url).send().await?;
+        let response = client.get(&url).send().await?;
 
         if response.status() != reqwest::StatusCode::OK {
             return Err(IpInfoClientError::Status(response.status().as_u16()));
