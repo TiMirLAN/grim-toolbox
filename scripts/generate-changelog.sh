@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-REPO_DIR="${REPO_DIR:-.}"
+REPO_DIR="${REPO_DIR:-$(pwd)}"
 PREV_TAG="${PREV_TAG:-}"
 NEW_TAG="HEAD"
 OUTPUT_FILE="${OUTPUT_FILE:-CHANGELOG.md}"
