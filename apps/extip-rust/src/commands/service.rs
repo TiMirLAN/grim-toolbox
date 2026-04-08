@@ -153,6 +153,42 @@ async fn run_service(socket_path: &PathBuf, token: Option<String>) {
         let state = Arc::clone(&state);
         let service = Arc::clone(&service);
         tokio::spawn(async move {
+            info!("Update loop started");
+
+            {
+                let mut s = service.lock().await;
+                s.attempt_number += 1;
+                let attempt = s.attempt_number;
+
+                {
+                    let mut st = state.lock().await;
+                    st.status = Status::Updating;
+                    st.message = format!("Initial fetch... Attempt #{}", attempt);
+                }
+
+                info!("Initial IP fetch...");
+
+                match s.ipinfo_client.fetch_simple_data().await {
+                    Ok(info) => {
+                        let ip = info.ip.clone();
+                        let mut st = state.lock().await;
+                        st.status = Status::Ready;
+                        st.info = Some(info);
+                        st.message = format!("Initial fetch done: {}", ip);
+                        info!("Initial IP fetched: {}", ip);
+                    }
+                    Err(e) => {
+                        let err_msg = format!("IpInfoClientError: {}", e);
+                        error!("Initial fetch error: {}", err_msg);
+                        let mut st = state.lock().await;
+                        st.status = Status::Error;
+                        st.message = err_msg.clone();
+                        st.info = None;
+                        st.error_type = Some(e.error_type().to_string());
+                    }
+                }
+            }
+
             loop {
                 {
                     let mut s = service.lock().await;
@@ -182,7 +218,7 @@ async fn run_service(socket_path: &PathBuf, token: Option<String>) {
                             error!("Error '{}' fetching ip...", err_msg);
                             let mut st = state.lock().await;
                             st.status = Status::Error;
-                            st.message = err_msg;
+                            st.message = err_msg.clone();
                             st.info = None;
                             st.error_type = Some(e.error_type().to_string());
                         }
@@ -202,41 +238,44 @@ async fn run_service(socket_path: &PathBuf, token: Option<String>) {
         let state = Arc::clone(&state);
         let service = Arc::clone(&service);
         tokio::spawn(async move {
+            info!("Watcher loop started");
             loop {
-                {
+                let route_changed = {
                     let mut s = service.lock().await;
-                    if s.route_watcher.check_changed() {
-                        info!("Iptables changed");
+                    s.route_watcher.check_changed()
+                };
 
-                        let attempt = {
-                            let mut s = service.lock().await;
-                            s.attempt_number += 1;
-                            s.attempt_number
-                        };
+                if route_changed {
+                    info!("Iptables changed");
 
-                        {
+                    let attempt = {
+                        let mut s = service.lock().await;
+                        s.attempt_number += 1;
+                        s.attempt_number
+                    };
+
+                    {
+                        let mut st = state.lock().await;
+                        st.status = Status::Updating;
+                        st.message = format!("Updating... Attempt #{}", attempt);
+                    }
+
+                    match service.lock().await.ipinfo_client.fetch_simple_data().await {
+                        Ok(info) => {
+                            let ip = info.ip.clone();
                             let mut st = state.lock().await;
-                            st.status = Status::Updating;
-                            st.message = format!("Updating... Attempt #{}", attempt);
+                            st.status = Status::Ready;
+                            st.info = Some(info);
+                            st.message = format!("Fetched {}", ip);
                         }
-
-                        match s.ipinfo_client.fetch_simple_data().await {
-                            Ok(info) => {
-                                let ip = info.ip.clone();
-                                let mut st = state.lock().await;
-                                st.status = Status::Ready;
-                                st.info = Some(info);
-                                st.message = format!("Fetched {}", ip);
-                            }
-                            Err(e) => {
-                                let err_msg = format!("IpInfoClientError: {}", e);
-                                error!("Error '{}' fetching ip...", err_msg);
-                                let mut st = state.lock().await;
-                                st.status = Status::Error;
-                                st.message = err_msg;
-                                st.info = None;
-                                st.error_type = Some(e.error_type().to_string());
-                            }
+                        Err(e) => {
+                            let err_msg = format!("IpInfoClientError: {}", e);
+                            error!("Error '{}' fetching ip...", err_msg);
+                            let mut st = state.lock().await;
+                            st.status = Status::Error;
+                            st.message = err_msg;
+                            st.info = None;
+                            st.error_type = Some(e.error_type().to_string());
                         }
                     }
                 }
