@@ -42,9 +42,12 @@ tasks:
 
   release:
     command:
-      - cargo check --release
+      - cd apps/extip-rust && cargo check --release
+      - cd apps/extip-rust && cargo build --release
       - "../../scripts/generate-changelog.sh"
       - git add -A
       - git commit -m "~ version"
+      - git tag -f "extip-v$(cd apps/extip-rust && cargo run --release --quiet -- --version | cut -d' ' -f2)"
+      - git push origin tag "extip-v$(cd apps/extip-rust && cargo run --release --quiet -- --version | cut -d' ' -f2)" --force
     dependsOn:
       - changelog
