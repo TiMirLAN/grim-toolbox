@@ -10,6 +10,15 @@
     "editor.formatOnSave": true,
     "editor.formatOnPaste": true
   },
+  "rust-analyzer.checkOnSave.enable": true,
+  "rust-analyzer.check.command": "clippy",
+  "rust-analyzer.linkedProjects": [
+    "apps/extip-rust/Cargo.toml"
+  ],
+  "rust-analyzer.watchDisable": false,
+  "rust-analyzer.server.extraEnv": {
+    "RUST_BACKTRACE": "1"
+  },
   "cSpell.enabled": true,
   "cSpell.language": "en,ru",
   "cSpell.enabledFileTypes": {

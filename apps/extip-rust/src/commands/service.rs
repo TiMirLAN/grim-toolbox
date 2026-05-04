@@ -5,14 +5,14 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::UnixListener;
 use tokio::signal::ctrl_c;
 use tokio::sync::Mutex;
-use tracing::{debug, error, info, Level};
+use tracing::{Level, debug, error, info};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
+use tracing_subscriber::Layer;
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::Layer;
 
-use crate::utils::ipinfo::{IpInfoClient, IPTABLES_TIMEOUT, UPDATING_TIMEOUT};
+use crate::utils::ipinfo::{IPTABLES_TIMEOUT, IpInfoClient, UPDATING_TIMEOUT};
 use crate::utils::route::{RouteWatcher, SystemRouteProvider};
 use crate::utils::serde::serialize_state;
 use crate::utils::types::{ServiceState, SimpleIpInfo, Status};
@@ -50,7 +50,9 @@ fn setup_logging(
         let file_appender = RollingFileAppender::new(
             Rotation::DAILY,
             file.parent().unwrap_or(&PathBuf::from(".")),
-            file.file_name().and_then(|n| n.to_str()).unwrap_or("extip.log"),
+            file.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("extip.log"),
         );
         let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
 
@@ -316,7 +318,8 @@ async fn run_server(
                     message: st.message.clone(),
                     error_type: st.error_type.clone(),
                 };
-                let json = serialize_state(&response).map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+                let json = serialize_state(&response)
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
                 writer.write_all(json.as_bytes()).await?;
             }
             Err(e) => {

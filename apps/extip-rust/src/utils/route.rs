@@ -36,6 +36,12 @@ impl RouteWatcher<SystemRouteProvider> {
     }
 }
 
+impl Default for RouteWatcher<SystemRouteProvider> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<R: RouteProvider> RouteWatcher<R> {
     #[allow(dead_code)]
     pub fn with_provider(provider: R) -> Self {
