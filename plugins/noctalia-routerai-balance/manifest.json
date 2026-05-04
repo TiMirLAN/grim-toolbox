@@ -1,0 +1,20 @@
+{
+  "id": "routerai-balance",
+  "name": "RouterAI Balance",
+  "version": "1.0.0",
+  "minNoctaliaVersion": "3.6.0",
+  "author": "grim-toolbox",
+  "license": "MIT",
+  "description": "Показывает баланс RouterAI",
+  "entryPoints": {
+    "barWidget": "BarWidget.qml",
+    "desktopWidget": "DesktopWidget.qml",
+    "desktopWidgetSettings": "DesktopWidgetSettings.qml"
+  },
+  "metadata": {
+    "defaultSettings": {
+      "apiKey": "",
+      "updateInterval": 300000
+    }
+  }
+}

@@ -1,0 +1,19 @@
+$schema: "https://moonrepo.dev/schemas/project.json"
+
+language: qml
+layer: tool
+project:
+  name: routerai-balance
+  description: |
+    Noctalia plugin displaying RouterAI account balance.
+    Supports bar widget and desktop widget with per-instance settings.
+  stack: plugin
+
+tasks:
+  link:
+    command: ln -sf /usr/projects/my/grim-toolbox/plugins/noctalia-routerai-balance ~/.config/noctalia/plugins/routerai-balance
+    description: Create symlink for development
+
+  validate:
+    command: echo "QML plugin - no additional validation needed"
+    description: Validate plugin structure

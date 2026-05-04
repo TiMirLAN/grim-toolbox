@@ -1,6 +1,7 @@
 projects:
   - 'apps/*'
   - 'scripts/*'
+  - 'plugins/*'
 
 vcs:
   defaultBranch: "master"

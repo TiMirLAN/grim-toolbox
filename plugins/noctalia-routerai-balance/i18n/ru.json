@@ -1,0 +1,16 @@
+{
+  "label.noKey": "No key",
+  "label.error": "Error",
+  "error.noApiKey": "No API key configured",
+  "error.invalidKey": "Invalid API key",
+  "error.invalidResponse": "Invalid response from server",
+  "error.parseFailed": "Failed to parse response",
+  "error.http": "HTTP error",
+  "error.network": "Network error",
+  "settings.title": "RouterAI Balance Settings",
+  "settings.apiKey": "API Key:",
+  "settings.apiKeyPlaceholder": "Enter API key",
+  "settings.updateInterval": "Update Interval:",
+  "settings.save": "Save",
+  "settings.saved": "Settings saved"
+}
