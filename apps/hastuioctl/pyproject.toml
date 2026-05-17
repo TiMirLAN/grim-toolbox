@@ -8,6 +8,7 @@ dependencies = [
     "paho-mqtt",
     "loguru",
     "pydantic>=2",
+    "click",
 ]
 
 [dependency-groups]

@@ -26,7 +26,6 @@ Environment:
 
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import re
@@ -36,6 +35,7 @@ import sys
 import time
 from typing import Any, Dict, List
 
+import click
 import yaml
 
 try:
@@ -44,7 +44,7 @@ except ImportError:  # pragma: no cover
     mqtt = None
 
 from loguru import logger
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # ── Pydantic models ─────────────────────────────────────────────────
 
@@ -103,6 +103,33 @@ class Config(BaseModel):
     """Top-level config: a list of events."""
 
     events: List[Event] = Field(default_factory=list)
+
+
+class HaPayload(BaseModel):
+    """Validated Home Assistant MQTT payload."""
+
+    model_config = ConfigDict(extra="allow")
+    command: str = ""
+    params: Dict[str, Any] = Field(default_factory=dict)
+
+    @classmethod
+    def from_raw(cls, raw: Any) -> "HaPayload":
+        """Parse raw MQTT payload into validated model."""
+        # If already parsed dict, validate directly
+        if isinstance(raw, dict):
+            return cls.model_validate(raw)
+        # Try JSON parse
+        if isinstance(raw, str):
+            try:
+                return cls.model_validate(json.loads(raw))
+            except (json.JSONDecodeError, ValueError):
+                # Treat as plain command
+                return cls(command=raw)
+        # None or other → minimal model
+        return cls()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return self.model_dump()
 
 
 # ── Template engine ─────────────────────────────────────────────────
@@ -222,28 +249,24 @@ def _do_reply(client: Any, action: Action, action_stdout: str | None) -> None:
 
 def _mqtt_handler(msg: Any, events: List[Event], client: Any) -> None:
     """Dispatch incoming MQTT message to matching events."""
-    try:
-        payload = json.loads(msg.payload.decode())
-    except json.JSONDecodeError:
-        payload = {"command": msg.payload.decode(), "params": ""}
+    payload = HaPayload.from_raw(msg.payload.decode())
+    payload_dict = payload.to_dict()
 
-    logger.debug("received  topic=%s  payload=%s", msg.topic, payload)
+    logger.debug("received  topic=%s  payload=%s", msg.topic, payload_dict)
 
     for event in events:
-        if event.trigger.match(payload):
+        if event.trigger.match(payload_dict):
             logger.info("matched  topic=%s", event.topic)
             for i, action in enumerate(event.actions):
-                stdout = _execute_action(action, payload)
+                stdout = _execute_action(action, payload_dict)
                 if i < len(event.actions) - 1:
-                    # Middle actions - pass stdout to next via params
                     if stdout and stdout.strip():
-                        stdout_copy = dict(payload.get("params") or {})
+                        stdout_copy = dict(payload_dict.get("params") or {})
                         stdout_copy["stdout"] = stdout.strip()
-                        payload["params"] = stdout_copy
+                        payload_dict["params"] = stdout_copy
                 else:
-                    # Last action - publish reply if configured
                     _do_reply(client, action, stdout)
-            break  # first match only
+            break
     else:
         logger.debug("no match for topic=%s", msg.topic)
 
@@ -251,68 +274,65 @@ def _mqtt_handler(msg: Any, events: List[Event], client: Any) -> None:
 # ── Main ────────────────────────────────────────────────────────────
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="HA-to-desktop audio control daemon")
-    parser.add_argument(
-        "--config",
-        "-c",
-        default=os.environ.get("HASTUOCTL_CONFIG", "events.yaml"),
-        help="Path to events.yaml",
-    )
-    parser.add_argument(
-        "--mqtt-host",
-        default=os.environ.get("MQTT_HOST", "127.0.0.1"),
-        help="MQTT broker hostname",
-    )
-    parser.add_argument(
-        "--mqtt-port",
-        type=int,
-        default=int(os.environ.get("MQTT_PORT", "1883")),
-        help="MQTT broker port",
-    )
-    parser.add_argument(
-        "--mqtt-client-id",
-        default=os.environ.get("MQTT_CLIENT_ID", "hastuioctl"),
-        help="MQTT client ID",
-    )
-    parser.add_argument("-v", "--verbose", action="store_true")
-    args = parser.parse_args()
-
+@click.command(context_settings={"help_option_names": ["-h", "--help"]})
+@click.option(
+    "--config",
+    "-c",
+    default=lambda: os.environ.get("HASTUOCTL_CONFIG", "events.yaml"),
+    show_default=True,
+    help="Path to events.yaml",
+)
+@click.option(
+    "--mqtt-host",
+    default=lambda: os.environ.get("MQTT_HOST", "127.0.0.1"),
+    show_default=True,
+    help="MQTT broker hostname",
+)
+@click.option(
+    "--mqtt-port",
+    type=int,
+    default=lambda: int(os.environ.get("MQTT_PORT", "1883")),
+    show_default=True,
+    help="MQTT broker port",
+)
+@click.option(
+    "--mqtt-client-id",
+    default=lambda: os.environ.get("MQTT_CLIENT_ID", "hastuioctl"),
+    show_default=True,
+    help="MQTT client ID",
+)
+@click.option("-v", "--verbose", is_flag=True, help="Enable debug logging")
+def main(
+    config: str, mqtt_host: str, mqtt_port: int, mqtt_client_id: str, verbose: bool
+) -> None:
+    """HA-to-desktop audio control daemon."""
+    # Click auto-generates --help, uses lazy defaults from env
     handler = {"sink": sys.stdout}
-    log_level = os.environ.get(
-        "HASTUOCTL_LOG_LEVEL", "DEBUG" if args.verbose else "INFO"
-    )
+    log_level = os.environ.get("HASTUOCTL_LOG_LEVEL", "DEBUG" if verbose else "INFO")
     logger.remove()
     logger.add(**handler, level=log_level)
 
     logger.info("(c) hastuioctl - HA audio control daemon")
 
-    path = os.path.abspath(args.config)
+    path = os.path.abspath(config)
     logger.info("loading config from %s", path)
     try:
-        config = load_config(path)
+        config_obj = load_config(path)
     except Exception as exc:
         logger.error("failed to load config: %s", exc)
         sys.exit(1)
 
-    events = config.events
+    events = config_obj.events
     logger.info("loaded %d event rules", len(events))
 
     topics = sorted({e.topic for e in events})
-    logger.info(
-        "MQTT topics: %s",
-        ", ".join(
-            topics,
-        ),
-    )
+    logger.info("MQTT topics: %s", ", ".join(topics))
 
     if mqtt is None:  # pragma: no cover
         logger.error("paho-mqtt not installed: pip install paho-mqtt")
         sys.exit(1)
 
-    client = mqtt.Client(
-        mqtt.CallbackAPIVersion.VERSION2, client_id=args.mqtt_client_id
-    )
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=mqtt_client_id)
 
     def on_connect(_c: Any, _u: Any, _f: Any, rc: int) -> None:
         if rc == 0:
@@ -331,21 +351,13 @@ def main() -> None:
     client.on_disconnect = on_disconnect
 
     def _reconnect() -> None:
-        try:
-            client.connect(args.mqtt_host, args.mqtt_port, 60)
-            client.loop_start()
-        except OSError as exc:
-            logger.error(
-                "cannot connect to MQTT at %s:%d - %s",
-                args.mqtt_host,
-                args.mqtt_port,
-                exc,
-            )
-            raise exc
+        client.connect(mqtt_host, mqtt_port, 60)
+        client.loop_start()
 
     try:
         _reconnect()
-    except OSError:
+    except OSError as exc:
+        logger.error("cannot connect to MQTT at %s:%d - %s", mqtt_host, mqtt_port, exc)
         logger.info("will retry in 5 s ...")
         while True:
             try:
@@ -363,6 +375,10 @@ def main() -> None:
         logger.info("shutting down ...")
         client.loop_stop()
         client.disconnect()
+
+
+if __name__ == "__main__":
+    main()
 
 
 # ── Exported API ────────────────────────────────────────────────────
