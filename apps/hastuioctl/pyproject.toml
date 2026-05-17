@@ -7,6 +7,7 @@ dependencies = [
     "pyyaml",
     "paho-mqtt",
     "loguru",
+    "pydantic>=2",
 ]
 
 [dependency-groups]
@@ -21,5 +22,6 @@ select = ["F", "E", "I", "T", "ANN"]
 extend-select = ["E501", "E722", "E741"]
 ignore = ["ANN401", "ANN002", "ANN003"]
 
-[tool.ruff.lint.per-file-ignores]
+[tool.ruff.lint.extend-per-file-ignores]
+"hastuioctl.py" = ["E501"]
 "test_*.py" = ["ANN201", "ANN001"]
