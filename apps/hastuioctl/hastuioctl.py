@@ -26,6 +26,7 @@ Environment:
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import re
@@ -239,7 +240,7 @@ def _do_reply(client: Any, action: Action, action_stdout: str) -> None:
         logger.warning("publish reply failed: %s", exc)
 
 
-def _mqtt_handler(msg: Any, events: List[Event], client: Any) -> None:
+def _mqtt_handler_internal(msg: Any, events: List[Event], client: Any) -> None:
     """Dispatch incoming MQTT message to matching events."""
     payload_dict = HaPayload.from_raw(msg.payload.decode()).model_dump()
 
@@ -264,7 +265,23 @@ def _mqtt_handler(msg: Any, events: List[Event], client: Any) -> None:
         logger.debug("no match for topic=%s", msg.topic)
 
 
-# ── Main ────────────────────────────────────────────────────────────
+
+def _mqtt_handler(*args, **kwargs):
+    """Compatibility wrapper accepting either (msg, events, client) or (client, userdata, msg)."""
+    # Signature: _mqtt_handler(msg, events, client) used by tests
+    if len(args) == 3 and not kwargs:
+        msg, events, client = args
+        return _mqtt_handler_internal(msg, events, client)
+    # Signature: (client, userdata, msg) when used as paho callback; events expected as kwarg (partial)
+    if len(args) == 3:
+        client, userdata, msg = args
+        events = kwargs.get('events')
+        if events is None:
+            raise TypeError('events kwarg required')
+        return _mqtt_handler_internal(msg, events, client)
+    raise TypeError('unsupported signature for _mqtt_handler')
+
+# ── Main# ── Main ────────────────────────────────────────────────────────────
 
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
@@ -335,8 +352,12 @@ def main(
     def on_disconnect(_c: Any, _u: Any, rc: int) -> None:
         logger.warning("MQTT disconnected (rc=%d) - reconnecting", rc)
 
+    def _mqtt_on_message(client: Any, userdata: Any, msg: Any, events: List[Event]) -> None:
+        """Wrapper that forwards to internal handler with bound events."""
+        return _mqtt_handler_internal(msg, events, client)
+
     client.on_connect = on_connect
-    client.on_message = lambda c, u, m: _mqtt_handler(m, events, c)
+    client.on_message = functools.partial(_mqtt_on_message, events=events)
     client.on_disconnect = on_disconnect
 
     def _reconnect() -> None:
