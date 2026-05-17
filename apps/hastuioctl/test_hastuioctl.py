@@ -314,3 +314,92 @@ class TestPydanticValidation:
         chain_payload = {"command": "test", "params": {"stdout": "CHAINED"}}
         result2 = _execute_action(action2, chain_payload)
         assert "CHAINED" in result2
+
+
+# ── HaPayload tests ────────────────────────────────────────────────
+
+
+class TestHaPayload:
+    def test_from_raw_dict(self):
+        from hastuioctl import HaPayload
+
+        payload = HaPayload.from_raw({"command": "play", "params": {}})
+        assert payload.command == "play"
+        assert payload.params == {}
+
+    def test_from_raw_json(self):
+        from hastuioctl import HaPayload
+
+        payload = HaPayload.from_raw('{"command": "stop"}')
+        assert payload.command == "stop"
+        assert payload.params == {}
+
+    def test_from_raw_malformed_json(self):
+        from hastuioctl import HaPayload
+
+        payload = HaPayload.from_raw("malformed{json")
+        assert payload.command == "malformed{json"
+        assert payload.params == {}
+
+    def test_from_raw_empty_json(self):
+        from hastuioctl import HaPayload
+
+        payload = HaPayload.from_raw({})
+        assert payload.command == ""
+
+    def test_from_raw_empty_json_string(self):
+        from hastuioctl import HaPayload
+
+        payload = HaPayload.from_raw("{}")
+        assert payload.command == ""
+
+    def test_from_raw_none(self):
+        from hastuioctl import HaPayload
+
+        payload = HaPayload.from_raw(None)
+        assert payload.command == ""
+
+    def test_from_raw_plain_string(self):
+        from hastuioctl import HaPayload
+
+        payload = HaPayload.from_raw("just-a-string")
+        assert payload.command == "just-a-string"
+
+    def test_from_raw_extra_fields(self):
+        from hastuioctl import HaPayload
+
+        payload = HaPayload.from_raw({"command": "play", "extra": "field"})
+        assert payload.command == "play"
+        # extra="allow" — extra fields stored, to_dict() includes them
+        d = payload.to_dict()
+        assert "extra" in d
+
+    def test_model_dump(self):
+        from hastuioctl import HaPayload
+
+        payload = HaPayload.from_raw({"command": "play", "params": {"url": "x"}})
+        d = payload.to_dict()
+        assert d["command"] == "play"
+        assert d["params"] == {"url": "x"}
+
+
+# ── Trigger.match edge cases ───────────────────────────────────────
+
+
+class TestMatchTrigger:
+    def test_text_non_dict_params_list(self):
+        t = Trigger(text="hello")
+        # params is a list, not dict → should not match
+        assert t.match({"params": ["hello"]}) is False
+
+    def test_text_params_int(self):
+        t = Trigger(text="hello")
+        # params is an int → should not match
+        assert t.match({"params": 42}) is False
+
+    def test_text_params_empty_string(self):
+        t = Trigger(text="hello")
+        # params empty string → str(params) → ""
+        # re.search("hello", "") → False
+        assert t.match({"params": ""}) is False
+
