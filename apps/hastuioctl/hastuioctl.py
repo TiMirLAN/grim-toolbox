@@ -372,10 +372,6 @@ def main(
         client.disconnect()
 
 
-if __name__ == "__main__":
-    main()
-
-
 # ── Exported API ────────────────────────────────────────────────────
 
 load_events = load_config  # alias for backward compat
