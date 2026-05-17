@@ -1,0 +1,21 @@
+$schema: "https://moonrepo.dev/schemas/project.json"
+
+layer: application
+project:
+  name: hastuioctl
+  description: |
+    Home Assistant audio control daemon — bridges MQTT commands
+    to local media players via a declarative events.yaml.
+stack: systems
+tasks:
+  run.service:
+    command: uv run ./hastuioctl.py --config events.yaml
+
+  lint:
+    command: uv run ruff check --fix
+
+  format:
+    command: uv run ruff format
+
+  test:
+    command: uv run pytest

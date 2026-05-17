@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"     # MQTT
+      - "9001:9001"     # WebSocket (опционально для HA)
+    volumes:
+      - ./data:/mqtt/data
+      - ./config:/mqtt/config
+    command: /mosquitto/config/mosquitto.conf

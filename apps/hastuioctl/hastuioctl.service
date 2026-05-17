@@ -1,0 +1,26 @@
+[Unit]
+Description=Hastuioctl — Home Assistant audio control daemon
+Documentation=github:grim-toolbox/apps/hastuioctl
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/env python3 %h/Projects/My/grim-toolbox/apps/hastuioctl/hastuioctl.py \
+    --config %h/Projects/My/grim-toolbox/apps/hastuioctl/events.yaml
+WorkingDirectory=%h/Projects/My/grim-toolbox/apps/hastuioctl
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+ProtectSystem=strict
+ReadWritePaths=%h/Projects/My/grim-toolbox/apps/hastuioctl
+ProtectHome=true
+NoNewPrivileges=true
+# Allow access to D-Bus session bus and PipeWire/Pulse
+BusPolicy=connection
+
+[Install]
+WantedBy=default.target

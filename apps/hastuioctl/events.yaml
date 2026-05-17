@@ -1,0 +1,149 @@
+# hastuioctl — Event-to-command mapping
+#
+# When MQTT message on a subscribed topic matches the `trigger` pattern,
+# the associated `action` is executed.
+#
+# Event format (JSON): { "command": "...", "params": { ... } }
+# or raw string for simple commands.
+
+events:
+
+  # ── Playback control ───────────────────────────────────────────
+  - topic: "ha/audio/command"
+    trigger:
+      command: "play"
+    action:
+      description: "Play / resume audio"
+      command: "playerctl"
+      args: ["play"]
+
+  - topic: "ha/audio/command"
+    trigger:
+      command: "pause"
+    action:
+      description: "Pause playing audio"
+      command: "playerctl"
+      args: ["pause"]
+
+  - topic: "ha/audio/command"
+    trigger:
+      command: "stop"
+    action:
+      description: "Stop audio playback"
+      command: "playerctl"
+      args: ["stop"]
+
+  - topic: "ha/audio/command"
+    trigger:
+      command: "next"
+    action:
+      description: "Next track"
+      command: "playerctl"
+      args: ["next"]
+
+  - topic: "ha/audio/command"
+    trigger:
+      command: "prev"
+    action:
+      description: "Previous track"
+      command: "playerctl"
+      args: ["previous"]
+
+  - topic: "ha/audio/command"
+    trigger:
+      command: "play-pause"
+    action:
+      description: "Toggle play/pause"
+      command: "playerctl"
+      args: ["play-pause"]
+
+  # ── Volume ─────────────────────────────────────────────────────
+  - topic: "ha/audio/command"
+    trigger:
+      command: "volume"
+    action:
+      description: "Set volume percentage"
+      command: "pactl"
+      args:
+        - "set-sink-volume"
+        - "@DEFAULT_SINK@"
+        - "{{ params }}"       # must be a number or "N%"
+
+  - topic: "ha/audio/command"
+    trigger:
+      command: "volume-up"
+    action:
+      description: "Increase volume by delta"
+      command: "pactl"
+      args:
+        - "set-sink-volume"
+        - "@DEFAULT_SINK@"
+        - "++{{ params | default 5 }}"         # {{+5}} by default
+
+  - topic: "ha/audio/command"
+    trigger:
+      command: "volume-down"
+    action:
+      description: "Decrease volume by delta"
+      command: "pactl"
+      args:
+        - "set-sink-volume"
+        - "@DEFAULT_SINK@"
+        - "--{{ params | default 5 }}"         # --5 by default
+
+  - topic: "ha/audio/command"
+    trigger:
+      command: "mute"
+    action:
+      description: "Toggle mute"
+      command: "pactl"
+      args: ["set-sink-mute", "@DEFAULT_SINK@", "toggle"]
+
+  - topic: "ha/audio/command"
+    trigger:
+      command: "unmute"
+    action:
+      description: "Unmute"
+      command: "pactl"
+      args: ["set-sink-mute", "@DEFAULT_SINK@", "0"]
+
+  # ── Play arbitrary URL ─────────────────────────────────────────
+  - topic: "ha/audio/command"
+    trigger:
+      command: "play_url"
+    action:
+      description: "Play media URL on desktop via mpv"
+      command: "mpv"
+      args:
+        - "--no-video"
+        - "--volume=50"
+        - "{{ params.url }}"
+
+  # ── TTS / text-to-speak ────────────────────────────────────────
+  - topic: "ha/audio/tts"
+    trigger:
+      text: "."                          # match everything (regex, bare string)
+    action:
+      description: "Speak text via espeak or pico2wave"
+      command: "espeak"
+      args:
+        - "{{ params.text }}"
+      env:
+        VOICE: "{{ params.voice | default 'default' }}"
+
+  # ── Status reporting ───────────────────────────────────────────
+  - topic: "ha/audio/status/subscribe"
+    trigger:
+      command: "status"
+    action:
+      command: "playerctl"
+      args: ["metadata", "-f", "{{ '{{{{title}}}} | {{ '{{{{artist}}}} | {{ '{{{{status}}}}"]
+      publish_reply_to: "ha/audio/status"       # publish result back
+
+  - topic: "ha/audio/volume/subscribe"
+    trigger:
+      command: "volume_status"
+    action:
+      command: "pactl"
+      args: ["get-sink-volume", "@DEFAULT_SINK@"]
+      publish_reply_to: "ha/audio/volume_status"
