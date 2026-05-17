@@ -9,6 +9,7 @@ Run with:
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -18,7 +19,6 @@ import hastuioctl as _mod
 from hastuioctl import (
     Action,
     Trigger,
-    build_context,
     load_events,
     match_trigger,
     render,
@@ -188,22 +188,6 @@ class TestLoadEvents:
         assert events[0].action.description == ""
 
 
-# ── build_context() tests ───────────────────────────────────────────
-
-class TestBuildContext:
-    def test_basic(self):
-        ctx = build_context(75, "volume")
-        assert ctx == {"params": 75, "command": "volume"}
-
-    def test_none_params(self):
-        ctx = build_context(None, "play")
-        assert ctx == {"params": {}, "command": "play"}
-
-    def test_no_command(self):
-        ctx = build_context({"x": 1})
-        assert ctx == {"params": {"x": 1}}
-
-
 # ── run_action() tests ──────────────────────────────────────────────
 
 class TestRunAction:
@@ -248,7 +232,7 @@ class TestRunAction:
     def test_env_merged(self):
         """Verify env vars from the action are merged into subprocess."""
         action = Action(
-            command="bash",
+            command="sh",
             args=["-c", "echo $HASTUIOCTL_TEST_MARKER"],
             env={"HASTUIOCTL_TEST_MARKER": "exists"},
         )
@@ -273,16 +257,21 @@ class TestRunAction:
         assert result is None
 
     def test_timeout(self):
+        """Test via mock to avoid waiting 30s for actual subprocess timeout."""
         action = Action(
             command="sleep",
-            args=["60"],
+            args=["9999"],
             description="timeout test",
         )
-        result = run_action(
-            action,
-            {"command": "test", "params": {}},
-            mqtt_client=None,
-        )
+        with patch(
+            "subprocess.run",
+            side_effect=subprocess.TimeoutExpired("sleep", 30),
+        ):
+            result = run_action(
+                action,
+                {"command": "test", "params": {}},
+                mqtt_client=None,
+            )
         assert result is None
 
     @patch.object(_mod, "mqtt")
@@ -320,7 +309,7 @@ class TestFlow:
         match = [e for e in events if e.trigger.command == "play"][0]
         assert match.trigger.command == "play"
 
-        ctx = _mod.build_context({}, "play")
+        ctx = {"params": {}, "command": "play"}
         rendered = [_mod.render(a, ctx) for a in match.action.args]
         assert rendered == ["play"]
 
@@ -328,6 +317,6 @@ class TestFlow:
         events = load_events(str(tmp_events))
         match = [e for e in events if e.trigger.command == "volume"][0]
 
-        ctx = _mod.build_context(85, "volume")
+        ctx = {"params": 85, "command": "volume"}
         rendered = [_mod.render(a, ctx) for a in match.action.args]
         assert rendered == ["set-sink-volume", "@DEFAULT_SINK@", "85"]

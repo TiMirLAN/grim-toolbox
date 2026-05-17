@@ -34,9 +34,11 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
 
 # ── Dependencies ────────────────────────────────────────────────────
+from functools import partial
+from typing import Any, Dict, List, Optional
+
 import yaml  # noqa: E402
 
 try:
@@ -77,6 +79,8 @@ RE_TEMPLATE = re.compile(r"\{\{(.*?)\}\}")
 
 def _resolve_path(parts: list[str], obj: Any) -> Any:
     """Navigate dict/list keys via '.'-split path."""
+    if not parts:
+        return None
     for key in parts:
         if key.startswith('"') and key.endswith('"'):
             key = key[1:-1]
@@ -99,25 +103,13 @@ def _resolve_path(parts: list[str], obj: Any) -> Any:
 
 def _eval_expr(expr: str, context: Dict[str, Any]) -> Any:
     """Evaluate a single template expression."""
-    if "| default " in expr:
-        key_part, _, default_val = expr.partition("| default ")
-        value = _walk_path(key_part.strip().split("."), context)
+    if " | default " in expr:
+        key_part, _, default_val = expr.partition(" | default ")
+        value = _resolve_path(key_part.strip().split("."), context)
         if value is None:
             return default_val.strip() if default_val.strip() else ""
         return str(value)
-    return _walk_path(expr.split("."), context)
-
-
-def _walk_path(path: list[str], context: Dict[str, Any]) -> Any:
-    """Resolve a dotted path against a context dict."""
-    if not path:
-        return None
-    obj: Any = context
-    for key in path:
-        obj = _resolve_path([key], obj)
-        if obj is None:
-            return None
-    return obj
+    return _resolve_path(expr.split("."), context)
 
 
 def render(template: str, context: Dict[str, Any]) -> str:
@@ -181,17 +173,11 @@ def load_events(path: str) -> List[Event]:
 def match_trigger(trigger: Trigger, payload: Dict[str, Any]) -> bool:
     """Return True if *payload* matches the trigger rules.
 
-    Evaluation order:
-    1. If trigger has a ``command``, it must match exactly.
-    2. If trigger has ``text`` (regex), payload["params"]["text"] must
-       match it. Both checks apply when both fields are present (AND).
-    3. Extra keys must also match exactly.
+    Evaluation order (AND logic): command → text → extra keys.
     """
-    command = payload.get("command")
-
     # 1 — command match
     if trigger.command is not None:
-        if command is None or command != trigger.command:
+        if payload.get("command") != trigger.command:
             return False
 
     # 2 — text regex match
@@ -199,9 +185,7 @@ def match_trigger(trigger: Trigger, payload: Dict[str, Any]) -> bool:
         params = payload.get("params")
         if not isinstance(params, dict):
             return False
-        text = params.get("text", "")
-        if text is None:
-            text = str(params)
+        text = params.get("text") or str(params)
         if not re.search(trigger.text, str(text), re.IGNORECASE):
             return False
 
@@ -215,25 +199,16 @@ def match_trigger(trigger: Trigger, payload: Dict[str, Any]) -> bool:
 
 # ── Action executor ─────────────────────────────────────────────────
 
-def build_context(
-    params: Any, command: Optional[str] = None,
-) -> Dict[str, Any]:
-    ctx: Dict[str, Any] = {"params": params or {}}
-    if command is not None:
-        ctx["command"] = command
-    return ctx
-
-
 def run_action(
     action: Action,
     payload: Dict[str, Any],
     *,
-    mqtt_client: Any,
+    mqtt_client: Optional[Any] = None,
 ) -> Optional[str]:
     """Execute the action. Returns stdout (used for reply publishing)."""
-    params = payload.get("params") or {}
-    cmd = payload.get("command")
-    ctx = build_context(params, cmd)
+    ctx: Dict[str, Any] = {"params": payload.get("params") or {}}
+    if (cmd := payload.get("command")) is not None:
+        ctx["command"] = cmd
 
     rendered_args: List[str] = [render(a, ctx) for a in action.args]
 
@@ -261,7 +236,7 @@ def run_action(
 
         if result.returncode != 0:
             logger.warning(
-                "[action] %s return code %d: %s",
+                "[action] %s: return code %d: %s",
                 action.description,
                 result.returncode,
                 result.stderr[:200],
@@ -272,13 +247,12 @@ def run_action(
         if reply_topic and result.stdout.strip() and mqtt_client:
             reply_payload = {"status": "ok", "data": result.stdout.strip()}
             try:
-                mqtt_client.publish(
-                    reply_topic, json.dumps(reply_payload)
-                )
+                mqtt_client.publish(reply_topic, json.dumps(reply_payload))
                 logger.debug("reply → %s", reply_topic)
             except Exception as exc:
                 logger.warning(
-                    "failed to publish reply to %s: %s", reply_topic, exc
+                    "failed to publish reply to %s: %s",
+                    reply_topic, exc,
                 )
 
         return result.stdout
@@ -290,10 +264,7 @@ def run_action(
             action.command,
         )
     except subprocess.TimeoutExpired:
-        logger.error(
-            "[action] %s — timed out after 30s",
-            action.description,
-        )
+        logger.error("[action] %s — timed out after 30s", action.description)
 
     return None
 
@@ -402,9 +373,7 @@ def main() -> None:
         client_id=args.mqtt_client_id,
     )
     client.on_connect = on_connect
-    client.on_message = lambda c, u, m: _mqtt_on_message(
-        c, u, m, subscriptions=events
-    )
+    client.on_message = partial(_mqtt_on_message, subscriptions=events)
     client.on_disconnect = on_disconnect
 
     def _connect_loop() -> None:
