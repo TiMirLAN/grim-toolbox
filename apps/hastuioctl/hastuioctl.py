@@ -227,14 +227,11 @@ def _execute_action(action: Action, payload: Dict[str, Any]) -> str | None:
 # ── MQTT callback ───────────────────────────────────────────────────
 
 
-def _do_reply(client: Any, action: Action, action_stdout: str | None) -> None:
+def _do_reply(client: Any, action: Action, action_stdout: str) -> None:
     """Publish action stdout to configured reply topic."""
-    if not action.publish_reply_to or not action_stdout:
+    if not action.publish_reply_to or not action_stdout.strip():
         return
-    data = action_stdout.strip()
-    if not data:
-        return
-    reply_payload = {"status": "ok", "data": data}
+    reply_payload = {"status": "ok", "data": action_stdout}
     try:
         client.publish(action.publish_reply_to, json.dumps(reply_payload))
         logger.debug("reply -> %s", action.publish_reply_to)
@@ -244,25 +241,26 @@ def _do_reply(client: Any, action: Action, action_stdout: str | None) -> None:
 
 def _mqtt_handler(msg: Any, events: List[Event], client: Any) -> None:
     """Dispatch incoming MQTT message to matching events."""
-    payload = HaPayload.from_raw(msg.payload.decode())
-    payload_dict = payload.to_dict()
+    payload_dict = HaPayload.from_raw(msg.payload.decode()).model_dump()
 
     logger.debug("received  topic=%s  payload=%s", msg.topic, payload_dict)
 
+    matched = False
     for event in events:
         if event.trigger.match(payload_dict):
+            matched = True
             logger.info("matched  topic=%s", event.topic)
             for i, action in enumerate(event.actions):
                 stdout = _execute_action(action, payload_dict)
+                if not stdout or not stdout.strip():
+                    continue
                 if i < len(event.actions) - 1:
-                    if stdout and stdout.strip():
-                        stdout_copy = dict(payload_dict.get("params") or {})
-                        stdout_copy["stdout"] = stdout.strip()
-                        payload_dict["params"] = stdout_copy
+                    stdout_copy = dict(payload_dict.get("params") or {})
+                    stdout_copy["stdout"] = stdout.strip()
+                    payload_dict["params"] = stdout_copy
                 else:
-                    _do_reply(client, action, stdout)
-            break
-    else:
+                    _do_reply(client, action, stdout.strip())
+    if not matched:
         logger.debug("no match for topic=%s", msg.topic)
 
 
@@ -286,7 +284,7 @@ def _mqtt_handler(msg: Any, events: List[Event], client: Any) -> None:
 @click.option(
     "--mqtt-port",
     type=int,
-    default=lambda: int(os.environ.get("MQTT_PORT", "1883")),
+    default=lambda: os.environ.get("MQTT_PORT", "1883"),
     show_default=True,
     help="MQTT broker port",
 )
@@ -322,10 +320,6 @@ def main(
 
     topics = sorted({e.topic for e in events})
     logger.info("MQTT topics: %s", ", ".join(topics))
-
-    if mqtt is None:  # pragma: no cover
-        logger.error("paho-mqtt not installed: pip install paho-mqtt")
-        sys.exit(1)
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=mqtt_client_id)
 
@@ -370,11 +364,6 @@ def main(
         logger.info("shutting down ...")
         client.loop_stop()
         client.disconnect()
-
-
-# ── Exported API ────────────────────────────────────────────────────
-
-load_events = load_config  # alias for backward compat
 
 
 if __name__ == "__main__":
