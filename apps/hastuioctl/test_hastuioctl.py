@@ -14,11 +14,13 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 import hastuioctl as _mod
 from hastuioctl import Action, Event, Trigger, load_config, render
 
 # ── Fixtures ─────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def tmp_events(tmp_path: Path) -> Path:
@@ -27,35 +29,36 @@ def tmp_events(tmp_path: Path) -> Path:
     cfg.write_text(
         "events:\n"
         '  - topic: "ha/audio/command"\n'
-        '    trigger:\n'
+        "    trigger:\n"
         '      command: "play"\n'
-        '    actions:\n'
-        '      - description: Play\n'
+        "    actions:\n"
+        "      - description: Play\n"
         '        command: "playerctl"\n'
         '        args: ["play"]\n'
         '  - topic: "ha/audio/command"\n'
-        '    trigger:\n'
+        "    trigger:\n"
         '      command: "volume"\n'
-        '    actions:\n'
-        '      - description: Volume\n'
+        "    actions:\n"
+        "      - description: Volume\n"
         '        command: "pactl"\n'
-        '        args:\n'
+        "        args:\n"
         '          - "set-sink-volume"\n'
         '          - "@DEFAULT_SINK@"\n'
         '          - "{{ params }}"\n'
         '  - topic: "ha/audio/tts"\n'
-        '    trigger:\n'
+        "    trigger:\n"
         '      text: "."\n'
-        '    actions:\n'
-        '      - description: TTS\n'
+        "    actions:\n"
+        "      - description: TTS\n"
         '        command: "espeak"\n'
-        '        env:\n'
-        '          VOICE: "{{ params.voice | default \'\' }}"  \n'
+        "        env:\n"
+        "          VOICE: \"{{ params.voice | default '' }}\"  \n"
     )
     return cfg
 
 
 # ── render() tests ──────────────────────────────────────────────────
+
 
 class TestRender:
     def test_simple_params(self):
@@ -87,6 +90,7 @@ class TestRender:
 
 
 # ── Trigger.match() tests ───────────────────────────────────────────
+
 
 class TestMatchTrigger:
     def test_command_exact_match(self):
@@ -121,6 +125,7 @@ class TestMatchTrigger:
 
 
 # ── load_events() / Config tests ────────────────────────────────────
+
 
 class TestLoadEvents:
     def test_load_empty(self, tmp_path: Path):
@@ -163,8 +168,8 @@ class TestLoadEvents:
         cfg.write_text(
             "events:\n"
             '  - topic: "test"\n'
-            '    trigger: {}\n'
-            '    action:\n'
+            "    trigger: {}\n"
+            "    action:\n"
             '      command: "echo"\n'
         )
         config = load_config(str(cfg))
@@ -180,8 +185,8 @@ class TestLoadEvents:
         cfg.write_text(
             "events:\n"
             '  - topic: "test"\n'
-            '    trigger: {}\n'
-            '    action:\n'
+            "    trigger: {}\n"
+            "    action:\n"
             '      command: "echo"\n'
         )
         config = load_config(str(cfg))
@@ -192,29 +197,32 @@ class TestLoadEvents:
 
 # ── _execute_action() tests ────────────────────────────────────────
 
+
 class TestExecuteAction:
     def test_runs_command(self):
         from hastuioctl import _execute_action
+
         action = Action(command="echo", args=["hello"])
         result = _execute_action(action, {"command": "test", "params": {}})
         assert result == "hello\n"
 
     def test_rendered_args_substituted(self):
         from hastuioctl import _execute_action
+
         action = Action(command="echo", args=["vol:", "{{ params.level }}"])
-        result = _execute_action(
-            action, {"command": "set", "params": {"level": 80}}
-        )
+        result = _execute_action(action, {"command": "set", "params": {"level": 80}})
         assert "80" in result
 
     def test_default_renders(self):
         from hastuioctl import _execute_action
+
         action = Action(command="echo", args=["{{ params.delta | default 5 }}"])
         result = _execute_action(action, {"command": "up", "params": {}})
         assert "5" in result
 
     def test_env_merged(self):
         from hastuioctl import _execute_action
+
         action = Action(
             command="sh",
             args=["-c", "echo $HASTUIOCTL_TEST_MARKER"],
@@ -225,12 +233,14 @@ class TestExecuteAction:
 
     def test_binary_not_found(self):
         from hastuioctl import _execute_action
+
         action = Action(command="/no/such/binary", args=["arg"])
         result = _execute_action(action, {"command": "x", "params": {}})
         assert result is None
 
     def test_timeout_mocked(self):
         from hastuioctl import _execute_action
+
         action = Action(command="sleep", args=["9999"])
         with patch(
             "subprocess.run",
@@ -242,6 +252,7 @@ class TestExecuteAction:
     @patch.object(_mod, "mqtt")
     def test_publishes_reply_via_mqtt_handler(self, mock_mqtt):
         from hastuioctl import _mqtt_handler
+
         mock_client = MagicMock()
         mock_client.publish = MagicMock()
 
@@ -267,15 +278,39 @@ class TestExecuteAction:
 
 # ── Pydantic validation tests ───────────────────────────────────────
 
+
 class TestPydanticValidation:
     def test_trigger_extra_forbid(self):
         """Unknown trigger keys should be rejected by Pydantic."""
-        with pytest.raises(Exception):  # ValidationError
+        with pytest.raises(ValidationError):
             Trigger(command="play", unknown_key="value")
 
     def test_config_missing_events(self, tmp_path: Path):
-        """Config.model_validate handles empty/None input gracefully."""
+        """Config handles empty dict input."""
         cfg = tmp_path / "no_events.yaml"
         cfg.write_text("{}\n")
         config = load_config(str(cfg))
         assert len(config.events) == 0
+
+    def test_config_empty_file(self, tmp_path: Path):
+        """Truly empty YAML → None → {} via load_config."""
+        cfg = tmp_path / "truly_empty.yaml"
+        cfg.write_text("")
+        config = load_config(str(cfg))
+        assert len(config.events) == 0
+
+    def test_multi_action_chaining(self):
+        """Multiple actions per event: first stdout passed to second via params."""
+        from hastuioctl import _execute_action
+
+        # Simulate chained actions: first echoes "CHAINED", second uses it
+        action1 = Action(command="echo", args=["CHAINED"])
+        action2 = Action(command="echo", args=["GOT:", "{{ params.stdout }}"])
+
+        result1 = _execute_action(action1, {"command": "test", "params": {}})
+        assert "CHAINED" in result1
+
+        # Simulate chained payload: stdout from action1 added to params
+        chain_payload = {"command": "test", "params": {"stdout": "CHAINED"}}
+        result2 = _execute_action(action2, chain_payload)
+        assert "CHAINED" in result2

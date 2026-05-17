@@ -48,8 +48,10 @@ from pydantic import BaseModel, Field, model_validator
 
 # ── Pydantic models ─────────────────────────────────────────────────
 
+
 class Trigger(BaseModel, extra="forbid"):
     """Match criteria: command exact, text regex, optional extra keys."""
+
     command: str | None = None
     text: str | None = None
 
@@ -66,16 +68,12 @@ class Trigger(BaseModel, extra="forbid"):
             text = params.get("text") or str(params)
             if not re.search(self.text, str(text), re.IGNORECASE):
                 return False
-        # 3 - extra exact-match keys
-        if self.model_extra:
-            for k, v in self.model_extra.items():
-                if payload.get(k) != v:
-                    return False
         return True
 
 
 class Action(BaseModel):
     """Shell command to execute."""
+
     command: str
     args: List[str] = Field(default_factory=list)
     env: Dict[str, str] = Field(default_factory=dict)
@@ -85,6 +83,7 @@ class Action(BaseModel):
 
 class Event(BaseModel):
     """MQTT topic + trigger -> list of actions."""
+
     topic: str
     trigger: Trigger
     actions: List[Action]
@@ -102,6 +101,7 @@ class Event(BaseModel):
 
 class Config(BaseModel):
     """Top-level config: a list of events."""
+
     events: List[Event] = Field(default_factory=list)
 
 
@@ -147,13 +147,16 @@ def _eval_expr(expr: str, ctx: Dict[str, Any]) -> Any:
 
 def render(template: str, ctx: Dict[str, Any]) -> str:
     """Substitute {{ ... }} placeholders."""
+
     def _inner(m: re.Match) -> str:
         value = _eval_expr(m.group(1).strip(), ctx)
         return str(value) if value is not None else ""
+
     return _RE_TPL.sub(_inner, template)
 
 
 # ── YAML loading ────────────────────────────────────────────────────
+
 
 def load_config(path: str) -> Config:
     """Parse events.yaml into a Config with Pydantic validation."""
@@ -166,6 +169,7 @@ def load_config(path: str) -> Config:
 
 # ── Action executor ─────────────────────────────────────────────────
 
+
 def _execute_action(action: Action, payload: Dict[str, Any]) -> str | None:
     """Run a single action, return stdout for reply."""
     ctx: Dict[str, Any] = {"params": payload.get("params") or {}}
@@ -177,20 +181,22 @@ def _execute_action(action: Action, payload: Dict[str, Any]) -> str | None:
     env = {**os.environ, **extra_env}
     cmd_line = [action.command] + rendered_args
 
-    logger.debug("[%s] %s %s", action.description, action.command,
-                 shlex.join(cmd_line))
+    logger.debug("[%s] %s %s", action.description, action.command, shlex.join(cmd_line))
 
     try:
-        result = subprocess.run(cmd_line, capture_output=True, text=True,
-                                timeout=30, env=env)
+        result = subprocess.run(
+            cmd_line, capture_output=True, text=True, timeout=30, env=env
+        )
         if result.returncode != 0:
-            logger.warning("[%s] return code %d: %s",
-                           action.description, result.returncode,
-                           result.stderr[:200])
+            logger.warning(
+                "[%s] return code %d: %s",
+                action.description,
+                result.returncode,
+                result.stderr[:200],
+            )
         return result.stdout
     except FileNotFoundError:
-        logger.error("[%s] binary '%s' not found",
-                     action.description, action.command)
+        logger.error("[%s] binary '%s' not found", action.description, action.command)
     except subprocess.TimeoutExpired:
         logger.error("[%s] timed out after 30s", action.description)
     return None
@@ -198,24 +204,24 @@ def _execute_action(action: Action, payload: Dict[str, Any]) -> str | None:
 
 # ── MQTT callback ───────────────────────────────────────────────────
 
+
+def _do_reply(client: Any, action: Action, action_stdout: str | None) -> None:
+    """Publish action stdout to configured reply topic."""
+    if not action.publish_reply_to or not action_stdout:
+        return
+    data = action_stdout.strip()
+    if not data:
+        return
+    reply_payload = {"status": "ok", "data": data}
+    try:
+        client.publish(action.publish_reply_to, json.dumps(reply_payload))
+        logger.debug("reply -> %s", action.publish_reply_to)
+    except Exception as exc:
+        logger.warning("publish reply failed: %s", exc)
+
+
 def _mqtt_handler(msg: Any, events: List[Event], client: Any) -> None:
-    """Dispatch incoming MQTT message to matching events, publish replies."""
-    stdout_stack: List[str] = []  # track stdout for reply chain
-
-    def _do_reply(action: Action, action_stdout: str | None) -> None:
-        """Publish stdout to specified topic."""
-        if not action.publish_reply_to or not action_stdout:
-            return
-        data = action_stdout.strip()
-        if not data:
-            return
-        reply_payload = {"status": "ok", "data": data}
-        try:
-            client.publish(action.publish_reply_to, json.dumps(reply_payload))
-            logger.debug("reply -> %s", action.publish_reply_to)
-        except Exception as exc:
-            logger.warning("publish reply failed: %s", exc)
-
+    """Dispatch incoming MQTT message to matching events."""
     try:
         payload = json.loads(msg.payload.decode())
     except json.JSONDecodeError:
@@ -228,18 +234,15 @@ def _mqtt_handler(msg: Any, events: List[Event], client: Any) -> None:
             logger.info("matched  topic=%s", event.topic)
             for i, action in enumerate(event.actions):
                 stdout = _execute_action(action, payload)
-                stdout_stack.append(stdout or "")
                 if i < len(event.actions) - 1:
-                    # Middle actions - pass stdout to next action via params
+                    # Middle actions - pass stdout to next via params
                     if stdout and stdout.strip():
-                        merged = dict(payload.get("params") or {})
-                        merged["stdout"] = stdout.strip()
-                        payload["params"] = merged
+                        stdout_copy = dict(payload.get("params") or {})
+                        stdout_copy["stdout"] = stdout.strip()
+                        payload["params"] = stdout_copy
                 else:
                     # Last action - publish reply if configured
-                    _do_reply(action, stdout)
-            # Clear stdout_stack for next message
-            stdout_stack.clear()
+                    _do_reply(client, action, stdout)
             break  # first match only
     else:
         logger.debug("no match for topic=%s", msg.topic)
@@ -247,26 +250,38 @@ def _mqtt_handler(msg: Any, events: List[Event], client: Any) -> None:
 
 # ── Main ────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="HA-to-desktop audio control daemon")
-    parser.add_argument("--config", "-c",
-                        default=os.environ.get("HASTUOCTL_CONFIG", "events.yaml"),
-                        help="Path to events.yaml")
-    parser.add_argument("--mqtt-host",
-                        default=os.environ.get("MQTT_HOST", "127.0.0.1"),
-                        help="MQTT broker hostname")
-    parser.add_argument("--mqtt-port", type=int,
-                        default=int(os.environ.get("MQTT_PORT", "1883")),
-                        help="MQTT broker port")
-    parser.add_argument("--mqtt-client-id",
-                        default=os.environ.get("MQTT_CLIENT_ID", "hastuioctl"),
-                        help="MQTT client ID")
+    parser.add_argument(
+        "--config",
+        "-c",
+        default=os.environ.get("HASTUOCTL_CONFIG", "events.yaml"),
+        help="Path to events.yaml",
+    )
+    parser.add_argument(
+        "--mqtt-host",
+        default=os.environ.get("MQTT_HOST", "127.0.0.1"),
+        help="MQTT broker hostname",
+    )
+    parser.add_argument(
+        "--mqtt-port",
+        type=int,
+        default=int(os.environ.get("MQTT_PORT", "1883")),
+        help="MQTT broker port",
+    )
+    parser.add_argument(
+        "--mqtt-client-id",
+        default=os.environ.get("MQTT_CLIENT_ID", "hastuioctl"),
+        help="MQTT client ID",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
     handler = {"sink": sys.stdout}
-    log_level = os.environ.get("HASTUOCTL_LOG_LEVEL",
-                               "DEBUG" if args.verbose else "INFO")
+    log_level = os.environ.get(
+        "HASTUOCTL_LOG_LEVEL", "DEBUG" if args.verbose else "INFO"
+    )
     logger.remove()
     logger.add(**handler, level=log_level)
 
@@ -284,14 +299,20 @@ def main() -> None:
     logger.info("loaded %d event rules", len(events))
 
     topics = sorted({e.topic for e in events})
-    logger.info("MQTT topics: %s", ", ".join(topics,))
+    logger.info(
+        "MQTT topics: %s",
+        ", ".join(
+            topics,
+        ),
+    )
 
     if mqtt is None:  # pragma: no cover
         logger.error("paho-mqtt not installed: pip install paho-mqtt")
         sys.exit(1)
 
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,
-                         client_id=args.mqtt_client_id)
+    client = mqtt.Client(
+        mqtt.CallbackAPIVersion.VERSION2, client_id=args.mqtt_client_id
+    )
 
     def on_connect(_c: Any, _u: Any, _f: Any, rc: int) -> None:
         if rc == 0:
@@ -314,8 +335,12 @@ def main() -> None:
             client.connect(args.mqtt_host, args.mqtt_port, 60)
             client.loop_start()
         except OSError as exc:
-            logger.error("cannot connect to MQTT at %s:%d - %s",
-                         args.mqtt_host, args.mqtt_port, exc)
+            logger.error(
+                "cannot connect to MQTT at %s:%d - %s",
+                args.mqtt_host,
+                args.mqtt_port,
+                exc,
+            )
             raise exc
 
     try:
@@ -347,4 +372,3 @@ load_events = load_config  # alias for backward compat
 
 if __name__ == "__main__":
     main()
-
