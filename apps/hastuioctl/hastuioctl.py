@@ -36,13 +36,8 @@ import time
 from typing import Any, Dict, List
 
 import click
+import paho.mqtt.client as mqtt
 import yaml
-
-try:
-    import paho.mqtt.client as mqtt
-except ImportError:  # pragma: no cover
-    mqtt = None
-
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
