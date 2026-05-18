@@ -245,16 +245,13 @@ def _do_reply(client: Any, action: Action, action_stdout: str) -> None:
         logger.warning("publish reply failed: %s", exc)
 
 
-
-
-
 # ── MQTT Handler class ─────────────────────────────────────────────────
 
 
 class MQTTHandler:
     """Encapsulates MQTT connection state and callbacks."""
 
-    def __init__(self, topics: List[str], events: List[Event], client: Any):
+    def __init__(self, topics: List[str], events: List[Event], client: Any) -> None:
         self.topics = topics
         self.events = events
         self.client = client

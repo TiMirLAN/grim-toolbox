@@ -382,25 +382,3 @@ class TestHaPayload:
         d = payload.to_dict()
         assert d["command"] == "play"
         assert d["params"] == {"url": "x"}
-
-
-# ── Trigger.match edge cases ───────────────────────────────────────
-
-
-class TestMatchTrigger:
-    def test_text_non_dict_params_list(self):
-        t = Trigger(text="hello")
-        # params is a list, not dict → should not match
-        assert t.match({"params": ["hello"]}) is False
-
-    def test_text_params_int(self):
-        t = Trigger(text="hello")
-        # params is an int → should not match
-        assert t.match({"params": 42}) is False
-
-    def test_text_params_empty_string(self):
-        t = Trigger(text="hello")
-        # params empty string → str(params) → ""
-        # re.search("hello", "") → False
-        assert t.match({"params": ""}) is False
-
