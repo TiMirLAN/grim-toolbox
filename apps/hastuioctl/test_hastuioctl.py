@@ -251,7 +251,7 @@ class TestExecuteAction:
 
     @patch.object(_mod, "mqtt")
     def test_publishes_reply_via_mqtt_handler(self, mock_mqtt):
-        from hastuioctl import _mqtt_handler
+        from hastuioctl import MQTTHandler
 
         mock_client = MagicMock()
         mock_client.publish = MagicMock()
@@ -267,7 +267,8 @@ class TestExecuteAction:
             topic = "t"
             payload = b'{"command": "status", "params": {}}'
 
-        _mqtt_handler(FakeMsg(), [event], mock_client)
+        handler = MQTTHandler(["t"], [event], mock_client)
+        handler.on_message(mock_client, None, FakeMsg())
         mock_client.publish.assert_called_once()
         call_args = mock_client.publish.call_args
         assert call_args[0][0] == "ha/audio/status"

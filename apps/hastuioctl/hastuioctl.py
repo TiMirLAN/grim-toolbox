@@ -245,45 +245,7 @@ def _do_reply(client: Any, action: Action, action_stdout: str) -> None:
         logger.warning("publish reply failed: %s", exc)
 
 
-def _mqtt_handler_internal(msg: Any, events: List[Event], client: Any) -> None:
-    """Dispatch incoming MQTT message to matching events."""
-    payload_dict = HaPayload.from_raw(msg.payload.decode()).model_dump()
 
-    logger.debug("received  topic=%s  payload=%s", msg.topic, payload_dict)
-
-    matched = False
-    for event in events:
-        if event.trigger.match(payload_dict):
-            matched = True
-            logger.info("matched  topic=%s", event.topic)
-            for i, action in enumerate(event.actions):
-                stdout = _execute_action(action, payload_dict)
-                if not stdout or not stdout.strip():
-                    continue
-                if i < len(event.actions) - 1:
-                    stdout_copy = dict(payload_dict.get("params") or {})
-                    stdout_copy["stdout"] = stdout.strip()
-                    payload_dict["params"] = stdout_copy
-                else:
-                    _do_reply(client, action, stdout.strip())
-    if not matched:
-        logger.debug("no match for topic=%s", msg.topic)
-
-
-def _mqtt_handler(*args, **kwargs):
-    """Compatibility wrapper accepting either (msg, events, client) or (client, userdata, msg)."""
-    # Signature: _mqtt_handler(msg, events, client) used by tests
-    if len(args) == 3 and not kwargs:
-        msg, events, client = args
-        return _mqtt_handler_internal(msg, events, client)
-    # Signature: (client, userdata, msg) when used as paho callback; events expected as kwarg (partial)
-    if len(args) == 3:
-        client, userdata, msg = args
-        events = kwargs.get("events")
-        if events is None:
-            raise TypeError("events kwarg required")
-        return _mqtt_handler_internal(msg, events, client)
-    raise TypeError("unsupported signature for _mqtt_handler")
 
 
 # ── MQTT Handler class ─────────────────────────────────────────────────
@@ -313,7 +275,27 @@ class MQTTHandler:
 
     def on_message(self, client: Any, userdata: Any, msg: Any) -> None:
         """Handle incoming MQTT message."""
-        return _mqtt_handler_internal(msg, self.events, client)
+        payload_dict = HaPayload.from_raw(msg.payload.decode()).model_dump()
+
+        logger.debug("received  topic=%s  payload=%s", msg.topic, payload_dict)
+
+        matched = False
+        for event in self.events:
+            if event.trigger.match(payload_dict):
+                matched = True
+                logger.info("matched  topic=%s", event.topic)
+                for i, action in enumerate(event.actions):
+                    stdout = _execute_action(action, payload_dict)
+                    if not stdout or not stdout.strip():
+                        continue
+                    if i < len(event.actions) - 1:
+                        stdout_copy = dict(payload_dict.get("params") or {})
+                        stdout_copy["stdout"] = stdout.strip()
+                        payload_dict["params"] = stdout_copy
+                    else:
+                        _do_reply(client, action, stdout.strip())
+        if not matched:
+            logger.debug("no match for topic=%s", msg.topic)
 
 
 # ── Main ────────────────────────────────────────────────────────────────
