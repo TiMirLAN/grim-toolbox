@@ -49,7 +49,7 @@ grim-toolbox/
 | 5 | Создать Portainer stack для Mosquitto | ✅ Готово |
 | 6 | Настроить HA (`configuration.yaml`, shell_command) | ✅ Готово |
 | 7 | Сделать конфиг в `~/.config/hastuioctl/events.yaml` | ✅ Готово |
-| 8 | Развернуть systemd на хосте | ⬜ Следующий шаг |
+| 8 | Развернуть systemd на хосте | ✅ Готово (нужно установить playerctl) |
 
 ---
 

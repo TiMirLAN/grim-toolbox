@@ -349,7 +349,7 @@ def main(
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=mqtt_client_id)
 
-    def on_connect(_c: Any, _u: Any, _f: Any, rc: int) -> None:
+    def on_connect(_c: Any, _u: Any, _f: Any, rc: int, _p: Any = None) -> None:
         if rc == 0:
             for topic in topics:
                 client.subscribe(topic)
@@ -358,7 +358,7 @@ def main(
         else:
             logger.error("MQTT connect failed: %d", rc)
 
-    def on_disconnect(_c: Any, _u: Any, rc: int) -> None:
+    def on_disconnect(_c: Any, _u: Any, rc: int, _p: Any = None) -> None:
         logger.warning("MQTT disconnected (rc=%d) - reconnecting", rc)
 
     def _mqtt_on_message(client: Any, userdata: Any, msg: Any, events: List[Event]) -> None:

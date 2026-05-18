@@ -5,7 +5,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/env uv --no-project --with pyyaml --with paho-mqtt --with loguru --with pydantic run \
+ExecStart=/usr/bin/env uv run --with pyyaml --with "paho-mqtt>=2" --with loguru --with pydantic --with click \
     %h/Projects/My/grim-toolbox/apps/hastuioctl/hastuioctl.py
 WorkingDirectory=%h
 Environment=DISPLAY=:0
@@ -16,7 +16,7 @@ RestartSec=5
 
 # Security hardening
 ProtectSystem=strict
-ReadWritePaths=%h/.config/hastuioctl
+ReadWritePaths=%h/.config/hastuioctl %h/.proto %h/.cache/uv
 ProtectHome=true
 NoNewPrivileges=true
 # Allow access to D-Bus session bus and PipeWire/Pulse
