@@ -272,7 +272,7 @@ class MQTTHandler:
 
     def on_disconnect(self, *args: Any, **kwargs: Any) -> None:
         """Handle MQTT disconnection."""
-        logger.warning("MQTT disconnected - reconnecting")
+        logger.warning("MQTT disconnected")
 
     def on_message(self, client: Any, userdata: Any, msg: Any) -> None:
         """Handle incoming MQTT message."""
