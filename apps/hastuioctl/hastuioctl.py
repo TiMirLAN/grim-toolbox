@@ -1,11 +1,12 @@
-#!/usr/bin/env -S uv --no-project --with pyyaml --with paho-mqtt --with loguru --with pydantic run
+#!/usr/bin/env -S uv run
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#     "pyyaml",
+#     "click",
 #     "paho-mqtt",
 #     "loguru",
 #     "pydantic>=2",
+#     "pyyaml",
 # ]
 # ///
 
