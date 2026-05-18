@@ -16,11 +16,17 @@ Waits in the background, connects to MQTT, and dispatches commands
 to local media players (playerctl, pactl, mpv, espeak ...) based on
 a declarative events.yaml file.
 
+Config location (in order of priority):
+    1. $HASTUOCTL_CONFIG env variable
+    2. ~/.config/hastuioctl/events.yaml (default)
+    3. events.yaml in current working directory
+
 Usage:
-    uv run ./hastuioctl.py --config events.yaml
+    uv run ./hastuioctl.py
+    uv run ./hastuioctl.py --config /path/to/events.yaml
 
 Environment:
-    HASTUOCTL_CONFIG      path to events.yaml (default: events.yaml in cwd)
+    HASTUOCTL_CONFIG      path to events.yaml
     HASTUOCTL_LOG_LEVEL   logging level (default: INFO)
 """
 
@@ -288,7 +294,10 @@ def _mqtt_handler(*args, **kwargs):
 @click.option(
     "--config",
     "-c",
-    default=lambda: os.environ.get("HASTUOCTL_CONFIG", "events.yaml"),
+    default=lambda: os.environ.get(
+        "HASTUOCTL_CONFIG",
+        os.path.expanduser("~/.config/hastuioctl/events.yaml"),
+    ),
     show_default=True,
     help="Path to events.yaml",
 )

@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   mosquitto:
     image: eclipse-mosquitto:2
@@ -11,4 +9,12 @@ services:
     volumes:
       - ./data:/mqtt/data
       - ./config:/mqtt/config
-    command: /mosquitto/config/mosquitto.conf
+    networks:
+      - local-services-db_default
+      - local-services-caddy_caddy
+
+networks:
+  local-services-db_default:
+    external: true
+  local-services-caddy_caddy:
+    external: true

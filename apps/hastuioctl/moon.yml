@@ -9,7 +9,7 @@ project:
 stack: systems
 tasks:
   run.service:
-    command: uv run ./hastuioctl.py --config events.yaml
+    command: uv run ./hastuioctl.py  # uses ~/.config/hastuioctl/events.yaml by default
 
   lint:
     command: uv run ruff check --fix

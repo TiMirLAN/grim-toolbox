@@ -5,9 +5,9 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/env python3 %h/Projects/My/grim-toolbox/apps/hastuioctl/hastuioctl.py \
-    --config %h/Projects/My/grim-toolbox/apps/hastuioctl/events.yaml
-WorkingDirectory=%h/Projects/My/grim-toolbox/apps/hastuioctl
+ExecStart=/usr/bin/env uv --no-project --with pyyaml --with paho-mqtt --with loguru --with pydantic run \
+    %h/Projects/My/grim-toolbox/apps/hastuioctl/hastuioctl.py
+WorkingDirectory=%h
 Environment=DISPLAY=:0
 Environment=XDG_RUNTIME_DIR=/run/user/1000
 Environment=PYTHONUNBUFFERED=1
@@ -16,7 +16,7 @@ RestartSec=5
 
 # Security hardening
 ProtectSystem=strict
-ReadWritePaths=%h/Projects/My/grim-toolbox/apps/hastuioctl
+ReadWritePaths=%h/.config/hastuioctl
 ProtectHome=true
 NoNewPrivileges=true
 # Allow access to D-Bus session bus and PipeWire/Pulse
