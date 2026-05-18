@@ -62,12 +62,15 @@ class Trigger(BaseModel, extra="forbid"):
         # 1 - command match
         if self.command is not None and payload.get("command") != self.command:
             return False
-        # 2 - text regex match
+        # 2 - text regex match (requires params.text to exist)
         if self.text is not None:
             params = payload.get("params")
             if not isinstance(params, dict):
                 return False
-            text = params.get("text") or str(params)
+            # Must have explicit "text" key in params to match text trigger
+            if "text" not in params:
+                return False
+            text = params.get("text")
             if not re.search(self.text, str(text), re.IGNORECASE):
                 return False
         return True
@@ -218,7 +221,7 @@ def _execute_action(action: Action, payload: Dict[str, Any]) -> str | None:
         )
         if result.returncode != 0:
             logger.warning(
-                "[%s] return code %d: %s",
+                "[{}] return code {}: {}",
                 action.description,
                 result.returncode,
                 result.stderr[:200],
@@ -267,11 +270,9 @@ class MQTTHandler:
         else:
             logger.error("MQTT connect failed: %d", rc)
 
-    def on_disconnect(
-        self, _c: Any, _u: Any, _df: Any, rc: int, _p: Any = None
-    ) -> None:
+    def on_disconnect(self, *args: Any, **kwargs: Any) -> None:
         """Handle MQTT disconnection."""
-        logger.warning("MQTT disconnected (rc=%d) - reconnecting", rc)
+        logger.warning("MQTT disconnected - reconnecting")
 
     def on_message(self, client: Any, userdata: Any, msg: Any) -> None:
         """Handle incoming MQTT message."""
@@ -358,7 +359,8 @@ def main(
     topics = sorted({e.topic for e in events})
     logger.info("MQTT topics: %s", ", ".join(topics))
 
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=mqtt_client_id)
+    unique_client_id = f"{mqtt_client_id}-{os.getpid()}"
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=unique_client_id)
     handler = MQTTHandler(topics, events, client)
 
     client.on_connect = handler.on_connect
