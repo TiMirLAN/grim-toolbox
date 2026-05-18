@@ -276,6 +276,32 @@ class TestExecuteAction:
         assert reply["status"] == "ok"
         assert "metadata" in reply["data"]
 
+    def test_mqtt_handler_on_connect_signature(self):
+        """Test that on_connect accepts correct paho-mqtt VERSION2 signature."""
+        from hastuioctl import MQTTHandler
+
+        mock_client = MagicMock()
+        handler = MQTTHandler(["topic1", "topic2"], [], mock_client)
+
+        # VERSION2 signature:
+        #   on_connect(client, userdata, connect_flags, reason_code, properties)
+        # Should not raise TypeError
+        handler.on_connect(mock_client, None, None, 0, None)
+        mock_client.subscribe.assert_called()
+
+    def test_mqtt_handler_on_disconnect_signature(self):
+        """Test that on_disconnect accepts correct paho-mqtt VERSION2 signature."""
+        from hastuioctl import MQTTHandler
+
+        mock_client = MagicMock()
+        handler = MQTTHandler([], [], mock_client)
+
+        # VERSION2 signature:
+        #   on_disconnect(client, userdata, disconnect_flags, reason_code, properties)
+        # Should not raise TypeError
+        handler.on_disconnect(mock_client, None, None, 0, None)
+        # If this completes without error, the test passes
+
 
 # ── Pydantic validation tests ───────────────────────────────────────
 

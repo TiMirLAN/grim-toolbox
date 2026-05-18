@@ -267,7 +267,9 @@ class MQTTHandler:
         else:
             logger.error("MQTT connect failed: %d", rc)
 
-    def on_disconnect(self, _c: Any, _u: Any, rc: int, _p: Any = None) -> None:
+    def on_disconnect(
+        self, _c: Any, _u: Any, _df: Any, rc: int, _p: Any = None
+    ) -> None:
         """Handle MQTT disconnection."""
         logger.warning("MQTT disconnected (rc=%d) - reconnecting", rc)
 
