@@ -32,7 +32,6 @@ Environment:
 
 from __future__ import annotations
 
-import functools
 import json
 import os
 import re
@@ -271,7 +270,6 @@ def _mqtt_handler_internal(msg: Any, events: List[Event], client: Any) -> None:
         logger.debug("no match for topic=%s", msg.topic)
 
 
-
 def _mqtt_handler(*args, **kwargs):
     """Compatibility wrapper accepting either (msg, events, client) or (client, userdata, msg)."""
     # Signature: _mqtt_handler(msg, events, client) used by tests
@@ -281,13 +279,44 @@ def _mqtt_handler(*args, **kwargs):
     # Signature: (client, userdata, msg) when used as paho callback; events expected as kwarg (partial)
     if len(args) == 3:
         client, userdata, msg = args
-        events = kwargs.get('events')
+        events = kwargs.get("events")
         if events is None:
-            raise TypeError('events kwarg required')
+            raise TypeError("events kwarg required")
         return _mqtt_handler_internal(msg, events, client)
-    raise TypeError('unsupported signature for _mqtt_handler')
+    raise TypeError("unsupported signature for _mqtt_handler")
 
-# ── Main# ── Main ────────────────────────────────────────────────────────────
+
+# ── MQTT Handler class ─────────────────────────────────────────────────
+
+
+class MQTTHandler:
+    """Encapsulates MQTT connection state and callbacks."""
+
+    def __init__(self, topics: List[str], events: List[Event], client: Any):
+        self.topics = topics
+        self.events = events
+        self.client = client
+
+    def on_connect(self, _c: Any, _u: Any, _f: Any, rc: int, _p: Any = None) -> None:
+        """Handle MQTT connection."""
+        if rc == 0:
+            for topic in self.topics:
+                self.client.subscribe(topic)
+                logger.info("subscribed -> %s", topic)
+            logger.info("MQTT connected")
+        else:
+            logger.error("MQTT connect failed: %d", rc)
+
+    def on_disconnect(self, _c: Any, _u: Any, rc: int, _p: Any = None) -> None:
+        """Handle MQTT disconnection."""
+        logger.warning("MQTT disconnected (rc=%d) - reconnecting", rc)
+
+    def on_message(self, client: Any, userdata: Any, msg: Any) -> None:
+        """Handle incoming MQTT message."""
+        return _mqtt_handler_internal(msg, self.events, client)
+
+
+# ── Main ────────────────────────────────────────────────────────────────
 
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
@@ -348,26 +377,11 @@ def main(
     logger.info("MQTT topics: %s", ", ".join(topics))
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=mqtt_client_id)
+    handler = MQTTHandler(topics, events, client)
 
-    def on_connect(_c: Any, _u: Any, _f: Any, rc: int, _p: Any = None) -> None:
-        if rc == 0:
-            for topic in topics:
-                client.subscribe(topic)
-                logger.info("subscribed -> %s", topic)
-            logger.info("MQTT connected")
-        else:
-            logger.error("MQTT connect failed: %d", rc)
-
-    def on_disconnect(_c: Any, _u: Any, rc: int, _p: Any = None) -> None:
-        logger.warning("MQTT disconnected (rc=%d) - reconnecting", rc)
-
-    def _mqtt_on_message(client: Any, userdata: Any, msg: Any, events: List[Event]) -> None:
-        """Wrapper that forwards to internal handler with bound events."""
-        return _mqtt_handler_internal(msg, events, client)
-
-    client.on_connect = on_connect
-    client.on_message = functools.partial(_mqtt_on_message, events=events)
-    client.on_disconnect = on_disconnect
+    client.on_connect = handler.on_connect
+    client.on_message = handler.on_message
+    client.on_disconnect = handler.on_disconnect
 
     def _reconnect() -> None:
         client.connect(mqtt_host, mqtt_port, 60)
