@@ -49,7 +49,19 @@ grim-toolbox/
 | 5 | Создать Portainer stack для Mosquitto | ✅ Готово |
 | 6 | Настроить HA (`configuration.yaml`, shell_command) | ✅ Готово |
 | 7 | Сделать конфиг в `~/.config/hastuioctl/events.yaml` | ✅ Готово |
-| 8 | Развернуть systemd на хосте | ✅ Готово (нужно установить playerctl) |
+| 8 | Развернуть systemd на хосте | ✅ Готово |
+| 9 | Исправить баг: volume-up/down триггерили TTS | ✅ Готово |
+|10 | Интеграция с Home Assistant (MQTT discovery) | 🔄 В процессе |
+
+---
+
+## 📋 Следующие задачи
+
+- [ ] Интеграция с Home Assistant через MQTT discovery
+- [ ] Убрать debug-вывод из кода
+- [ ] Добавить mute/unmute команды
+- [ ] Добавить play_url команду
+- [ ] Настроить автоматический перезапуск сервиса
 
 ---
 

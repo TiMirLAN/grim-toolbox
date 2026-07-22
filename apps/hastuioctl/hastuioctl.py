@@ -105,9 +105,21 @@ class Event(BaseModel):
 
 
 class Config(BaseModel):
-    """Top-level config: a list of events."""
+    """Top-level config: events + optional HA discovery."""
 
     events: List[Event] = Field(default_factory=list)
+    discovery: List["DiscoveryEntity"] = Field(default_factory=list)
+    discovery_prefix: str = Field(default="homeassistant")
+
+
+class DiscoveryEntity(BaseModel, extra="allow"):
+    """Single HA discovery entity configuration."""
+
+    object_id: str
+    entity_type: str  # media_player, button, number
+    name: str
+    command_topic: str | None = None
+    command_payload: Dict[str, Any] | None = None
 
 
 class HaPayload(BaseModel):
@@ -255,10 +267,19 @@ def _do_reply(client: Any, action: Action, action_stdout: str) -> None:
 class MQTTHandler:
     """Encapsulates MQTT connection state and callbacks."""
 
-    def __init__(self, topics: List[str], events: List[Event], client: Any) -> None:
+    def __init__(
+        self,
+        topics: List[str],
+        events: List[Event],
+        client: Any,
+        discovery: List[DiscoveryEntity] | None = None,
+        discovery_prefix: str = "homeassistant",
+    ) -> None:
         self.topics = topics
         self.events = events
         self.client = client
+        self.discovery = discovery or []
+        self.discovery_prefix = discovery_prefix
 
     def on_connect(self, _c: Any, _u: Any, _f: Any, rc: int, _p: Any = None) -> None:
         """Handle MQTT connection."""
@@ -266,6 +287,9 @@ class MQTTHandler:
             for topic in self.topics:
                 self.client.subscribe(topic)
                 logger.info("subscribed -> %s", topic)
+            # Publish HA discovery on connect
+            if self.discovery:
+                _publish_discovery(self.client, self.discovery, self.discovery_prefix)
             logger.info("MQTT connected")
         else:
             logger.error("MQTT connect failed: %d", rc)
